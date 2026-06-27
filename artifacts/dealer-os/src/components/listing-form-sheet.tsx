@@ -26,10 +26,30 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Loader2, Plus, Trash2, Image as ImageIcon } from "lucide-react";
+import { ALL_INDUSTRIAL_TYPES } from "@workspace/taxonomy";
 
 type Category = "car" | "real_estate" | "industrial";
 
-type SpecField = { key: string; label: string; numeric?: boolean };
+type SpecOption = { value: string; label: string };
+type SpecField = { key: string; label: string; numeric?: boolean; options?: SpecOption[] };
+
+/** Title-case an enum slug for display, e.g. "production_line" → "Production line". */
+function optionLabel(value: string): string {
+  const s = value.replace(/_/g, " ");
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+/**
+ * Industrial sub-type options, sourced from the shared @workspace/taxonomy
+ * (single source of truth, same values the mobile feed groups on). Previously
+ * dealer-os had NO industrial_type field, so every dealer industrial listing
+ * persisted with industrial_type=null and vanished from the mobile
+ * facilities/materials sections. This restores it.
+ */
+const INDUSTRIAL_TYPE_OPTIONS: SpecOption[] = ALL_INDUSTRIAL_TYPES.map((v) => ({
+  value: v,
+  label: optionLabel(v),
+}));
 
 const SPEC_FIELDS: Record<Category, SpecField[]> = {
   car: [
@@ -49,6 +69,7 @@ const SPEC_FIELDS: Record<Category, SpecField[]> = {
     { key: "finishing", label: "Finishing" },
   ],
   industrial: [
+    { key: "industrial_type", label: "Industrial type", options: INDUSTRIAL_TYPE_OPTIONS },
     { key: "equipment_type", label: "Equipment type" },
     { key: "brand", label: "Brand" },
     { key: "year", label: "Year", numeric: true },
@@ -345,13 +366,29 @@ export function ListingFormSheet({
                 {fields.map((f) => (
                   <div key={f.key} className="space-y-1.5">
                     <Label className="text-xs">{f.label}</Label>
-                    <Input
-                      type={f.numeric ? "number" : "text"}
-                      value={specs[f.key] ?? ""}
-                      onChange={(e) => setSpecs((s) => ({ ...s, [f.key]: e.target.value }))}
-                      className="bg-input border-border"
-                      data-testid={`form-spec-${f.key}`}
-                    />
+                    {f.options ? (
+                      <Select
+                        value={specs[f.key] ?? ""}
+                        onValueChange={(v) => setSpecs((s) => ({ ...s, [f.key]: v }))}
+                      >
+                        <SelectTrigger className="bg-input border-border" data-testid={`form-spec-${f.key}`}>
+                          <SelectValue placeholder={f.label} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {f.options.map((o) => (
+                            <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <Input
+                        type={f.numeric ? "number" : "text"}
+                        value={specs[f.key] ?? ""}
+                        onChange={(e) => setSpecs((s) => ({ ...s, [f.key]: e.target.value }))}
+                        className="bg-input border-border"
+                        data-testid={`form-spec-${f.key}`}
+                      />
+                    )}
                   </div>
                 ))}
               </div>
