@@ -250,6 +250,14 @@ export async function createListing(
       // Buyer requests may legitimately carry no photos; downgrade trust on
       // missing media instead of rejecting (sale listings still require media).
       requireMedia: !(input.is_request ?? false),
+      // ALWAYS-PUBLISH (product decision): an unmatched controlled value
+      // (location/brand/model/industrial_type that isn't in the taxonomy yet)
+      // must NOT 400 the listing. lenient records a warning and leaves the value
+      // unresolved, so the listing still publishes; the unresolved taxonomy then
+      // lowers trustScore, which demotes it in ranking — i.e. "unclassified
+      // enters at a lower rank" rather than being rejected. The minimal quality
+      // floors above (validateAttributes required specs + media) still apply.
+      lenient: true,
     }
   );
 
@@ -963,7 +971,9 @@ export async function updateListing(
       specs: mergedSpecs,
       media: mediaRows.map((m) => ({ type: m.type, url: m.url })),
     },
-    { sellerId: user.id, sellerVerified: !!user.isVerified, excludeListingId: id }
+    // Always-publish (see createListing): edits never 400 on an unmatched
+    // controlled value — it warns + ranks lower instead of rejecting.
+    { sellerId: user.id, sellerVerified: !!user.isVerified, excludeListingId: id, lenient: true }
   );
 
   await db
