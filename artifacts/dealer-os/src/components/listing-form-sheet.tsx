@@ -23,10 +23,10 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Loader2, Plus, Trash2, Image as ImageIcon } from "lucide-react";
-import { ALL_INDUSTRIAL_TYPES } from "@workspace/taxonomy";
+import { ALL_INDUSTRIAL_TYPES, LOCATIONS, flattenAreas } from "@workspace/taxonomy";
 
 type Category = "car" | "real_estate" | "industrial";
 
@@ -50,6 +50,21 @@ const INDUSTRIAL_TYPE_OPTIONS: SpecOption[] = ALL_INDUSTRIAL_TYPES.map((v) => ({
   value: v,
   label: optionLabel(v),
 }));
+
+/**
+ * Controlled location options sourced from the shared @workspace/taxonomy,
+ * grouped by country. The stored value is the canonical substring the backend
+ * matches (e.g. "New Cairo") — replaces the old free-text input that produced
+ * unmatchable locations (rejected or low-ranked listings).
+ */
+const LOCATION_GROUPS: { country: string; items: { value: string; label: string }[] }[] =
+  LOCATIONS.map((country) => ({
+    country: country.en,
+    items: flattenAreas(country).map(({ area, group }) => ({
+      value: area.value,
+      label: area.en === group.en ? area.en : `${area.en} — ${group.en}`,
+    })),
+  }));
 
 const SPEC_FIELDS: Record<Category, SpecField[]> = {
   car: [
@@ -352,7 +367,23 @@ export function ListingFormSheet({
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Location *</Label>
-                <Input value={location} onChange={(e) => setLocation(e.target.value)} className="bg-input border-border" data-testid="form-location" />
+                <Select value={location} onValueChange={setLocation}>
+                  <SelectTrigger className="bg-input border-border" data-testid="form-location">
+                    <SelectValue placeholder="Select location" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-72">
+                    {LOCATION_GROUPS.map((g) => (
+                      <SelectGroup key={g.country}>
+                        <SelectLabel>{g.country}</SelectLabel>
+                        {g.items.map((o) => (
+                          <SelectItem key={`${g.country}-${o.value}`} value={o.value}>
+                            {o.label}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
