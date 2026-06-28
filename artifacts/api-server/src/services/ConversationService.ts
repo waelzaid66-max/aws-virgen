@@ -32,6 +32,21 @@ export interface ConversationSummaryDTO {
   viewer_role: "buyer" | "seller";
 }
 
+/** Preview of the message a reply quotes. */
+export interface MessageReplyPreview {
+  id: string;
+  body: string;
+  sender_id: string;
+}
+
+/** A listing shared as a card inside the chat. */
+export interface MessageListingRef {
+  id: string;
+  title: string | null;
+  thumb: string | null;
+  price: string | null;
+}
+
 export interface MessageDTO {
   id: string;
   conversation_id: string;
@@ -41,6 +56,34 @@ export interface MessageDTO {
   created_at: string;
   read_at: string | null;
   media_url: string | null;
+  // Attachment kind: "image" | "video" | "audio" (voice note); null for text.
+  media_kind: string | null;
+  // Emoji reactions: count per emoji, + the emojis the viewer reacted with.
+  reactions: Record<string, number>;
+  my_reactions: string[];
+  // Reply/quote target + shared-listing card (null when absent).
+  reply_to: MessageReplyPreview | null;
+  listing_ref: MessageListingRef | null;
+}
+
+// Allowlisted reaction emojis (prevents arbitrary/abusive payloads).
+export const REACTION_EMOJIS = ["❤️", "👍", "😂", "😮", "😢", "🔥"] as const;
+
+/** Reduce the stored reactions map ({emoji:[userId]}) to counts + the viewer's. */
+function summarizeReactions(
+  raw: unknown,
+  viewerId: string
+): { reactions: Record<string, number>; my_reactions: string[] } {
+  const counts: Record<string, number> = {};
+  const mine: string[] = [];
+  if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+    for (const [emoji, uids] of Object.entries(raw as Record<string, unknown>)) {
+      if (!Array.isArray(uids) || uids.length === 0) continue;
+      counts[emoji] = uids.length;
+      if (uids.includes(viewerId)) mine.push(emoji);
+    }
+  }
+  return { reactions: counts, my_reactions: mine };
 }
 
 async function getUserId(clerkId: string): Promise<string> {
@@ -260,30 +303,98 @@ export async function getMessages(
     .where(eq(messages.conversationId, conversationId))
     .orderBy(asc(messages.createdAt));
 
-  return rows.map((m) => ({
-    id: m.id,
-    conversation_id: m.conversationId,
-    sender_id: m.senderId,
-    body: m.body,
-    is_mine: m.senderId === userId,
-    created_at: m.createdAt ? m.createdAt.toISOString() : new Date().toISOString(),
-    read_at: m.readAt ? m.readAt.toISOString() : null,
-    media_url: m.mediaUrl ?? null,
-  }));
+  // Batch-resolve reply previews (within this conversation) and shared-listing
+  // cards so the thread renders quoted replies + listing cards without N+1.
+  const replyIds = [...new Set(rows.map((r) => r.replyToId).filter((x): x is string => !!x))];
+  const replyMap = new Map<string, MessageReplyPreview>();
+  if (replyIds.length) {
+    const reps = await db
+      .select({ id: messages.id, body: messages.body, senderId: messages.senderId })
+      .from(messages)
+      .where(inArray(messages.id, replyIds));
+    for (const r of reps) replyMap.set(r.id, { id: r.id, body: r.body, sender_id: r.senderId });
+  }
+
+  const listingIds = [...new Set(rows.map((r) => r.listingRefId).filter((x): x is string => !!x))];
+  const listingMap = new Map<string, MessageListingRef>();
+  if (listingIds.length) {
+    const ls = await db
+      .select({ id: listings.id, title: listings.title, price: listings.basePriceCash })
+      .from(listings)
+      .where(inArray(listings.id, listingIds));
+    const thumbs = await getThumbs(listingIds);
+    for (const l of ls) {
+      listingMap.set(l.id, { id: l.id, title: l.title ?? null, thumb: thumbs.get(l.id) ?? null, price: l.price ?? null });
+    }
+  }
+
+  return rows.map((m) => {
+    const { reactions, my_reactions } = summarizeReactions(m.reactions, userId);
+    return {
+      id: m.id,
+      conversation_id: m.conversationId,
+      sender_id: m.senderId,
+      body: m.body,
+      is_mine: m.senderId === userId,
+      created_at: m.createdAt ? m.createdAt.toISOString() : new Date().toISOString(),
+      read_at: m.readAt ? m.readAt.toISOString() : null,
+      media_url: m.mediaUrl ?? null,
+      media_kind: m.mediaKind ?? null,
+      reactions,
+      my_reactions,
+      reply_to: m.replyToId ? replyMap.get(m.replyToId) ?? null : null,
+      listing_ref: m.listingRefId ? listingMap.get(m.listingRefId) ?? null : null,
+    };
+  });
+}
+
+export interface SendMessageInput {
+  /** Public serving URL of an attachment (image/video/voice). */
+  mediaUrl?: string | null;
+  /** Attachment kind: "image" | "video" | "audio". Defaults to image when a URL is present. */
+  mediaKind?: string | null;
+  /** Reply/quote target — must be a message in the same conversation. */
+  replyToId?: string | null;
+  /** A listing shared as a card inside the chat. */
+  listingRefId?: string | null;
 }
 
 export async function sendMessage(
   clerkId: string,
   conversationId: string,
   body: string,
-  mediaUrl?: string | null
+  opts: SendMessageInput = {}
 ): Promise<MessageDTO> {
   const userId = await getUserId(clerkId);
   const conv = await loadParticipantConversation(conversationId, userId);
 
   const text = body.trim();
-  if (!text && !mediaUrl) {
-    throw codedError("INVALID_DATA", "Message must contain text or an image");
+  const mediaUrl = opts.mediaUrl ?? null;
+  const replyToId = opts.replyToId ?? null;
+  const listingRefId = opts.listingRefId ?? null;
+  const mediaKind = opts.mediaKind ?? (mediaUrl ? "image" : null);
+  // A message must carry something: text, an attachment, or a shared listing.
+  if (!text && !mediaUrl && !listingRefId) {
+    throw codedError("INVALID_DATA", "Message must contain text, media, or a shared listing");
+  }
+
+  // A reply may only quote a message in THIS conversation (no cross-thread leak).
+  if (replyToId) {
+    const [target] = await db
+      .select({ id: messages.id })
+      .from(messages)
+      .where(and(eq(messages.id, replyToId), eq(messages.conversationId, conversationId)))
+      .limit(1);
+    if (!target) throw codedError("INVALID_DATA", "Reply target not found in this conversation");
+  }
+  // A shared listing must exist.
+  if (listingRefId) {
+    const [l] = await db
+      .select({ id: listings.id })
+      .from(listings)
+      .where(eq(listings.id, listingRefId))
+      .limit(1);
+    if (!l) throw codedError("INVALID_DATA", "Shared listing not found");
   }
 
   // Anti-spam: cap how fast a single user can fire messages. A block is surfaced
@@ -296,7 +407,7 @@ export async function sendMessage(
 
   const [msg] = await db
     .insert(messages)
-    .values({ conversationId, senderId: userId, body: text, mediaUrl: mediaUrl ?? null })
+    .values({ conversationId, senderId: userId, body: text, mediaUrl, mediaKind, replyToId, listingRefId })
     .returning();
 
   // Promote an attached image to public ACL so the recipient's client can load
@@ -307,8 +418,18 @@ export async function sendMessage(
     await objectStorageService.promoteServingUrlToPublic(msg.mediaUrl, userId);
   }
 
-  // Inbox preview: the text, or a camera glyph for an image-only message.
-  const preview = text || "📷";
+  // Inbox preview: the text, else a glyph for the attachment / shared listing.
+  const preview =
+    text ||
+    (mediaKind === "audio"
+      ? "🎤 Voice message"
+      : mediaKind === "video"
+        ? "🎬 Video"
+        : mediaUrl
+          ? "📷 Photo"
+          : listingRefId
+            ? "📎 Listing"
+            : "📷");
   const now = new Date();
   await db
     .update(conversations)
@@ -338,6 +459,30 @@ export async function sendMessage(
     data: { conversation_id: conversationId, listing_id: conv.listingId },
   });
 
+  // Resolve the reply preview + shared-listing card for the returned message so
+  // the sender's client can render them immediately (no thread refetch needed).
+  let reply_to: MessageReplyPreview | null = null;
+  if (msg.replyToId) {
+    const [r] = await db
+      .select({ id: messages.id, body: messages.body, senderId: messages.senderId })
+      .from(messages)
+      .where(eq(messages.id, msg.replyToId))
+      .limit(1);
+    if (r) reply_to = { id: r.id, body: r.body, sender_id: r.senderId };
+  }
+  let listing_ref: MessageListingRef | null = null;
+  if (msg.listingRefId) {
+    const [l] = await db
+      .select({ id: listings.id, title: listings.title, price: listings.basePriceCash })
+      .from(listings)
+      .where(eq(listings.id, msg.listingRefId))
+      .limit(1);
+    if (l) {
+      const thumbs = await getThumbs([l.id]);
+      listing_ref = { id: l.id, title: l.title ?? null, thumb: thumbs.get(l.id) ?? null, price: l.price ?? null };
+    }
+  }
+
   return {
     id: msg.id,
     conversation_id: conversationId,
@@ -347,6 +492,11 @@ export async function sendMessage(
     created_at: msg.createdAt ? msg.createdAt.toISOString() : now.toISOString(),
     read_at: null,
     media_url: msg.mediaUrl ?? null,
+    media_kind: msg.mediaKind ?? null,
+    reactions: {},
+    my_reactions: [],
+    reply_to,
+    listing_ref,
   };
 }
 
@@ -396,4 +546,51 @@ export async function deleteConversation(
     .where(eq(conversations.id, conversationId));
 
   return { deleted: true };
+}
+
+/**
+ * Toggle the caller's emoji reaction on a message. Reactions live in a jsonb map
+ * ({ "<emoji>": [userId, ...] }); a FOR UPDATE row lock serializes concurrent
+ * toggles so counts can't be lost. Only allowlisted emojis are accepted and the
+ * caller must be a participant of the message's conversation.
+ */
+export async function reactToMessage(
+  clerkId: string,
+  conversationId: string,
+  messageId: string,
+  emoji: string
+): Promise<{ reactions: Record<string, number>; my_reactions: string[] }> {
+  if (!REACTION_EMOJIS.includes(emoji as (typeof REACTION_EMOJIS)[number])) {
+    throw codedError("INVALID_DATA", "Unsupported reaction");
+  }
+  const userId = await getUserId(clerkId);
+  await loadParticipantConversation(conversationId, userId);
+
+  return db.transaction(async (tx) => {
+    const [m] = await tx
+      .select({ id: messages.id, reactions: messages.reactions })
+      .from(messages)
+      .where(and(eq(messages.id, messageId), eq(messages.conversationId, conversationId)))
+      .for("update")
+      .limit(1);
+    if (!m) throw codedError("NOT_FOUND", "Message not found");
+
+    const map: Record<string, string[]> = {};
+    if (m.reactions && typeof m.reactions === "object" && !Array.isArray(m.reactions)) {
+      for (const [e, uids] of Object.entries(m.reactions as Record<string, unknown>)) {
+        if (Array.isArray(uids)) {
+          map[e] = uids.filter((u): u is string => typeof u === "string");
+        }
+      }
+    }
+    const arr = map[emoji] ?? [];
+    const idx = arr.indexOf(userId);
+    if (idx >= 0) arr.splice(idx, 1);
+    else arr.push(userId);
+    if (arr.length) map[emoji] = arr;
+    else delete map[emoji];
+
+    await tx.update(messages).set({ reactions: map }).where(eq(messages.id, messageId));
+    return summarizeReactions(map, userId);
+  });
 }

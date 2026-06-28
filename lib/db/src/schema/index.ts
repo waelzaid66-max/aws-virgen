@@ -987,6 +987,19 @@ export const messages = pgTable(
     // Optional single image attachment (Task #71). Stores the public serving URL
     // returned by /v1/uploads/request-url. Text-only messages leave this null.
     mediaUrl: text("media_url"),
+    // Kind of the mediaUrl attachment: "image" | "video" | "audio" (voice note).
+    // Null for text-only or legacy image messages (treated as image).
+    mediaKind: text("media_kind"),
+    // Emoji reactions, shaped { "<emoji>": [userId, ...] }. Null/absent = none.
+    reactions: jsonb("reactions"),
+    // Reply/quote: the in-conversation message this one replies to (nullable).
+    replyToId: uuid("reply_to_id").references((): AnyPgColumn => messages.id, {
+      onDelete: "set null",
+    }),
+    // Shared listing card: a listing referenced inside the chat (nullable).
+    listingRefId: uuid("listing_ref_id").references(() => listings.id, {
+      onDelete: "set null",
+    }),
     readAt: timestamp("read_at"),
     createdAt: timestamp("created_at").defaultNow(),
   },

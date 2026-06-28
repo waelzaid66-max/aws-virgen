@@ -130,7 +130,9 @@ describe("ConversationService — buyer↔seller messaging journey", () => {
     const buyer = await mkUser();
     const listingId = await mkActiveListing(seller.id);
     const conv = await createConversation(buyer.clerkId, listingId);
-    await expect(sendMessage(buyer.clerkId, conv.id, "   ")).rejects.toThrow(/text or an image/i);
+    await expect(sendMessage(buyer.clerkId, conv.id, "   ")).rejects.toThrow(
+      /text, media, or a shared listing/i
+    );
   });
 
   it("soft-hides a thread for the deleter only, and a new message un-hides it", async () => {

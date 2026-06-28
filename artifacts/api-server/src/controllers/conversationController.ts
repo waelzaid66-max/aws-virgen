@@ -6,10 +6,13 @@ import {
   sendMessage,
   markConversationRead,
   deleteConversation,
+  reactToMessage,
 } from "../services/ConversationService";
 import {
   CreateConversationSchema,
   SendMessageSchema,
+  ReactToMessageSchema,
+  ReactionResultSchema,
   ConversationSummarySchema,
   MessageItemSchema,
   MarkReadResultSchema,
@@ -76,16 +79,32 @@ export async function getMessagesHandler(req: Request, res: Response) {
 export async function sendMessageHandler(req: Request, res: Response) {
   try {
     const input = SendMessageSchema.parse(req.body);
-    const result = await sendMessage(
-      req.userId!,
-      req.params.id as string,
-      input.body,
-      input.media_url ?? null
-    );
+    const result = await sendMessage(req.userId!, req.params.id as string, input.body, {
+      mediaUrl: input.media_url ?? null,
+      mediaKind: input.media_kind ?? null,
+      replyToId: input.reply_to_id ?? null,
+      listingRefId: input.listing_ref_id ?? null,
+    });
     const validated = validateResponse(MessageItemSchema, result);
     return res.json(successResponse(validated));
   } catch (err) {
     return handleError(err, res, "[Message send]");
+  }
+}
+
+export async function reactToMessageHandler(req: Request, res: Response) {
+  try {
+    const input = ReactToMessageSchema.parse(req.body);
+    const result = await reactToMessage(
+      req.userId!,
+      req.params.id as string,
+      req.params.messageId as string,
+      input.emoji
+    );
+    const validated = validateResponse(ReactionResultSchema, result);
+    return res.json(successResponse(validated));
+  } catch (err) {
+    return handleError(err, res, "[Message react]");
   }
 }
 

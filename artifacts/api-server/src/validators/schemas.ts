@@ -466,6 +466,23 @@ export const ConversationSummarySchema = z
   })
   .strict();
 
+export const MessageReplyPreviewSchema = z
+  .object({
+    id: z.string(),
+    body: z.string(),
+    sender_id: z.string(),
+  })
+  .strict();
+
+export const MessageListingRefSchema = z
+  .object({
+    id: z.string(),
+    title: z.string().nullable(),
+    thumb: z.string().nullable(),
+    price: z.string().nullable(),
+  })
+  .strict();
+
 export const MessageItemSchema = z
   .object({
     id: z.string(),
@@ -476,10 +493,28 @@ export const MessageItemSchema = z
     created_at: z.string(),
     read_at: z.string().nullable().optional(),
     media_url: z.string().nullable().optional(),
+    // Social-chat fields (additive; older clients ignore unknown keys).
+    media_kind: z.string().nullable().optional(),
+    reactions: z.record(z.string(), z.number()).optional().default({}),
+    my_reactions: z.array(z.string()).optional().default([]),
+    reply_to: MessageReplyPreviewSchema.nullable().optional(),
+    listing_ref: MessageListingRefSchema.nullable().optional(),
   })
   .strict();
 
 export const MarkReadResultSchema = z.object({ read: z.boolean() }).strict();
+
+// Body for toggling a reaction; result echoes the updated counts + viewer's set.
+export const ReactToMessageSchema = z
+  .object({ emoji: z.string().min(1).max(8) })
+  .strict();
+
+export const ReactionResultSchema = z
+  .object({
+    reactions: z.record(z.string(), z.number()),
+    my_reactions: z.array(z.string()),
+  })
+  .strict();
 
 export const DeleteConversationResultSchema = z
   .object({ deleted: z.boolean() })
@@ -604,12 +639,18 @@ export const CreateConversationSchema = z
 export const SendMessageSchema = z
   .object({
     body: z.string().trim().max(4000).optional().default(""),
-    // Optional single image attachment (Task #71). When present, body may be empty.
+    // Optional single attachment (Task #71). When present, body may be empty.
     media_url: z.string().url().max(2000).nullable().optional(),
+    // Attachment kind for the renderer: image | video | audio (voice note).
+    media_kind: z.enum(["image", "video", "audio"]).nullable().optional(),
+    // Reply/quote target (must be a message in the same conversation).
+    reply_to_id: z.string().uuid().nullable().optional(),
+    // A listing shared as a card inside the chat.
+    listing_ref_id: z.string().uuid().nullable().optional(),
   })
   .strict()
-  .refine((d) => (d.body && d.body.length > 0) || !!d.media_url, {
-    message: "Message must contain text or an image",
+  .refine((d) => (d.body && d.body.length > 0) || !!d.media_url || !!d.listing_ref_id, {
+    message: "Message must contain text, media, or a shared listing",
   });
 
 export const MarkNotificationsReadSchema = z
