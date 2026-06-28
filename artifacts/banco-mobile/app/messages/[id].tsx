@@ -2,6 +2,7 @@ import { Feather } from "@/components/icons";
 import {
   useGetMessages,
   sendMessage,
+  reactToMessage,
   markConversationRead,
   updateListing,
   getListConversationsQueryKey,
@@ -37,6 +38,10 @@ import { uploadImageAsset } from "@/lib/upload";
 
 // Lightweight quick-reactions — no emoji keyboard dependency, just appended text.
 const QUICK_EMOJIS = ["👍", "🙏", "😊", "🔥", "✅", "❤️", "😂", "💰", "🚗", "📍"];
+
+// Allowlisted emojis for message reactions — MUST mirror the server's
+// REACTION_EMOJIS (ConversationService) so toggles aren't rejected.
+const REACTION_EMOJIS = ["❤️", "👍", "😂", "😮", "😢", "🔥"];
 
 // Optimistic, client-only message that renders instantly while the send is in
 // flight. It carries a delivery status so the bubble can show sending/failed and
@@ -88,6 +93,10 @@ export default function ThreadScreen() {
   const [previewAsset, setPreviewAsset] =
     useState<ImagePicker.ImagePickerAsset | null>(null);
   const [viewerUri, setViewerUri] = useState<string | null>(null);
+  // The message a long-press opened the reaction/reply sheet for; and the
+  // message the composer is currently quoting in a reply.
+  const [actionFor, setActionFor] = useState<Message | null>(null);
+  const [replyTo, setReplyTo] = useState<Message | null>(null);
   const listRef = useRef<FlatList<Row>>(null);
   const lastReadCountRef = useRef(0);
 
@@ -152,12 +161,24 @@ export default function ThreadScreen() {
   // success drop the placeholder (the server echo from refetch replaces it); on
   // failure flip it to "failed" so the bubble offers tap-to-retry.
   const deliver = useCallback(
-    async (tempId: string, payload: { body?: string; media_url?: string }) => {
+    async (
+      tempId: string,
+      payload: {
+        body?: string;
+        media_url?: string;
+        media_kind?: "image" | "video" | "audio";
+        reply_to_id?: string;
+        listing_ref_id?: string;
+      }
+    ) => {
       if (!conversationId) return;
       try {
         await sendMessage(conversationId, {
           body: payload.body ?? "",
           ...(payload.media_url ? { media_url: payload.media_url } : {}),
+          ...(payload.media_kind ? { media_kind: payload.media_kind } : {}),
+          ...(payload.reply_to_id ? { reply_to_id: payload.reply_to_id } : {}),
+          ...(payload.listing_ref_id ? { listing_ref_id: payload.listing_ref_id } : {}),
         });
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         await query.refetch();
@@ -177,11 +198,45 @@ export default function ThreadScreen() {
     const body = draft.trim();
     if (!body || !conversationId) return;
     setDraft("");
+    const replyId = replyTo?.id;
+    setReplyTo(null);
     const tempId = `t-${Date.now()}`;
     setPending((p) => [...p, { tempId, body, status: "sending" }]);
     scrollToEnd(true);
-    void deliver(tempId, { body });
+    void deliver(tempId, { body, ...(replyId ? { reply_to_id: replyId } : {}) });
   };
+
+  // Toggle an emoji reaction on a message, then refetch so the chips update.
+  const react = useCallback(
+    async (messageId: string, emoji: string) => {
+      if (!conversationId) return;
+      setActionFor(null);
+      try {
+        Haptics.selectionAsync();
+        await reactToMessage(conversationId, messageId, { emoji });
+        await query.refetch();
+      } catch {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      }
+    },
+    [conversationId, query]
+  );
+
+  // Share the conversation's listing as a card inside the chat. Sent directly
+  // (no optimistic bubble) — the card needs server-resolved title/thumb/price.
+  const shareListing = useCallback(async () => {
+    if (!conversationId || !params.listingId) return;
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      await sendMessage(conversationId, { body: "", listing_ref_id: params.listingId });
+      await query.refetch();
+      qc.invalidateQueries({ queryKey: getListConversationsQueryKey() });
+      scrollToEnd(true);
+    } catch {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert(t("common.error"), t("chat.shareListingError"));
+    }
+  }, [conversationId, params.listingId, query, qc, scrollToEnd, t]);
 
   // Retry a failed optimistic message in place.
   const retry = useCallback(
@@ -295,6 +350,13 @@ export default function ThreadScreen() {
     const showReceipt =
       row.kind === "server" && mine && row.msg.id === lastMineId;
 
+    // Social fields live only on delivered (server) messages.
+    const server = row.kind === "server" ? row.msg : null;
+    const replyPreview = server?.reply_to ?? null;
+    const listingRef = server?.listing_ref ?? null;
+    const reactions = server?.reactions ?? {};
+    const myReactions = server?.my_reactions ?? [];
+
     const bubbleInner = (
       <View
         style={[
@@ -309,6 +371,64 @@ export default function ThreadScreen() {
           },
         ]}
       >
+        {replyPreview ? (
+          <View
+            style={[
+              styles.quote,
+              {
+                borderStartColor: mine ? colors.primaryForeground : colors.primary,
+                backgroundColor: mine ? "rgba(255,255,255,0.14)" : colors.background,
+              },
+            ]}
+          >
+            <AppText
+              numberOfLines={1}
+              style={[
+                styles.quoteText,
+                { color: mine ? colors.primaryForeground : colors.mutedForeground },
+              ]}
+            >
+              {replyPreview.body || t("chat.attachment")}
+            </AppText>
+          </View>
+        ) : null}
+        {listingRef ? (
+          <Pressable
+            onPress={() => router.push(`/listing/${listingRef.id}`)}
+            style={[
+              styles.listingCard,
+              {
+                backgroundColor: mine ? "rgba(255,255,255,0.14)" : colors.background,
+                borderColor: mine ? "rgba(255,255,255,0.25)" : colors.border,
+                flexDirection: isRTL ? "row-reverse" : "row",
+              },
+            ]}
+            testID={`chat-listing-${listingRef.id}`}
+          >
+            {listingRef.thumb ? (
+              <Image source={{ uri: listingRef.thumb }} style={styles.listingThumb} contentFit="cover" />
+            ) : (
+              <View style={[styles.listingThumb, styles.listingThumbPlaceholder, { backgroundColor: colors.secondary }]}>
+                <Feather name="image" size={18} color={colors.mutedForeground} />
+              </View>
+            )}
+            <View style={styles.listingInfo}>
+              <AppText
+                numberOfLines={2}
+                style={[styles.listingTitle, { color: mine ? colors.primaryForeground : colors.foreground, textAlign: isRTL ? "right" : "left" }]}
+              >
+                {listingRef.title || t("chat.listing")}
+              </AppText>
+              {listingRef.price ? (
+                <AppText
+                  style={[styles.listingPrice, { color: mine ? colors.primaryForeground : colors.primary, textAlign: isRTL ? "right" : "left" }]}
+                >
+                  {listingRef.price}
+                </AppText>
+              ) : null}
+            </View>
+          </Pressable>
+        ) : null}
         {mediaUrl ? (
           <Pressable
             onPress={() => !isPending && setViewerUri(mediaUrl)}
@@ -388,10 +508,59 @@ export default function ThreadScreen() {
             <Pressable onPress={() => retry(row.msg as PendingMessage)}>
               {bubbleInner}
             </Pressable>
+          ) : server ? (
+            <Pressable
+              onLongPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                setActionFor(server);
+              }}
+              delayLongPress={280}
+              testID={`message-${server.id}`}
+            >
+              {bubbleInner}
+            </Pressable>
           ) : (
             bubbleInner
           )}
         </View>
+        {Object.keys(reactions).length ? (
+          <View
+            style={[
+              styles.reactionRow,
+              {
+                justifyContent: mine ? "flex-end" : "flex-start",
+                flexDirection: isRTL ? "row-reverse" : "row",
+              },
+            ]}
+          >
+            {Object.entries(reactions).map(([emoji, count]) => {
+              const reacted = myReactions.includes(emoji);
+              return (
+                <Pressable
+                  key={emoji}
+                  onPress={() => server && react(server.id, emoji)}
+                  style={[
+                    styles.reactionChip,
+                    {
+                      backgroundColor: reacted ? colors.primary : colors.card,
+                      borderColor: reacted ? colors.primary : colors.border,
+                    },
+                  ]}
+                >
+                  <AppText style={styles.reactionEmoji}>{emoji}</AppText>
+                  <AppText
+                    style={[
+                      styles.reactionCount,
+                      { color: reacted ? colors.primaryForeground : colors.mutedForeground },
+                    ]}
+                  >
+                    {count}
+                  </AppText>
+                </Pressable>
+              );
+            })}
+          </View>
+        ) : null}
         {showReceipt ? (
           <AppText
             style={[
@@ -540,6 +709,32 @@ export default function ThreadScreen() {
           ))}
         </ScrollView>
 
+        {replyTo ? (
+          <View
+            style={[
+              styles.replyBar,
+              {
+                backgroundColor: colors.card,
+                borderTopColor: colors.border,
+                borderStartColor: colors.primary,
+                flexDirection: isRTL ? "row-reverse" : "row",
+              },
+            ]}
+          >
+            <View style={styles.replyBarInfo}>
+              <AppText style={[styles.replyBarTitle, { color: colors.primary }]} numberOfLines={1}>
+                {t("chat.replyingTo", { name: replyTo.is_mine ? t("chat.you") : params.name || t("messages.title") })}
+              </AppText>
+              <AppText style={[styles.replyBarBody, { color: colors.mutedForeground }]} numberOfLines={1}>
+                {replyTo.body || t("chat.attachment")}
+              </AppText>
+            </View>
+            <Pressable onPress={() => setReplyTo(null)} hitSlop={10} testID="reply-cancel">
+              <Feather name="x" size={18} color={colors.mutedForeground} />
+            </Pressable>
+          </View>
+        ) : null}
+
         <View
           style={[
             styles.inputBar,
@@ -551,6 +746,16 @@ export default function ThreadScreen() {
             },
           ]}
         >
+          {params.listingId ? (
+            <Pressable
+              onPress={shareListing}
+              style={[styles.attachBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+              testID="message-share-listing"
+              accessibilityLabel={t("chat.shareListing")}
+            >
+              <Feather name="tag" size={19} color={colors.mutedForeground} />
+            </Pressable>
+          ) : null}
           <Pressable
             onPress={handleAttachImage}
             disabled={uploading}
@@ -697,6 +902,54 @@ export default function ThreadScreen() {
           >
             <Feather name="x" size={26} color="#fff" />
           </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* Long-press action sheet: react with an emoji, or quote-reply. */}
+      <Modal
+        visible={!!actionFor}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setActionFor(null)}
+      >
+        <Pressable style={styles.sheetBackdrop} onPress={() => setActionFor(null)}>
+          <View
+            style={[
+              styles.sheet,
+              {
+                backgroundColor: colors.card,
+                borderColor: colors.border,
+                paddingBottom: insets.bottom + 12,
+              },
+            ]}
+          >
+            <View style={[styles.sheetEmojis, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+              {REACTION_EMOJIS.map((e) => (
+                <Pressable
+                  key={e}
+                  onPress={() => actionFor && react(actionFor.id, e)}
+                  style={styles.sheetEmojiBtn}
+                  testID={`react-${e}`}
+                >
+                  <AppText style={styles.sheetEmoji}>{e}</AppText>
+                </Pressable>
+              ))}
+            </View>
+            <Pressable
+              onPress={() => {
+                const m = actionFor;
+                setActionFor(null);
+                setReplyTo(m);
+              }}
+              style={[styles.sheetAction, { flexDirection: isRTL ? "row-reverse" : "row" }]}
+              testID="action-reply"
+            >
+              <Feather name="corner-up-left" size={18} color={colors.foreground} />
+              <AppText style={[styles.sheetActionText, { color: colors.foreground }]}>
+                {t("chat.reply")}
+              </AppText>
+            </Pressable>
+          </View>
         </Pressable>
       </Modal>
     </View>
@@ -863,4 +1116,81 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  // Quoted reply preview inside a bubble.
+  quote: {
+    borderStartWidth: 3,
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    marginBottom: 6,
+  },
+  quoteText: { fontSize: 13, fontFamily: "Inter_400Regular" },
+  // Shared-listing card inside a bubble.
+  listingCard: {
+    alignItems: "center",
+    gap: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 12,
+    padding: 8,
+    marginBottom: 6,
+    width: 220,
+  },
+  listingThumb: { width: 52, height: 52, borderRadius: 8 },
+  listingThumbPlaceholder: { alignItems: "center", justifyContent: "center" },
+  listingInfo: { flex: 1 },
+  listingTitle: { fontSize: 13.5, fontFamily: "Inter_600SemiBold", lineHeight: 18 },
+  listingPrice: { fontSize: 13, fontFamily: "Inter_600SemiBold", marginTop: 2 },
+  // Reaction chips under a bubble.
+  reactionRow: { gap: 5, marginTop: -2, marginBottom: 8, paddingHorizontal: 2 },
+  reactionChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 12,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+  },
+  reactionEmoji: { fontSize: 13 },
+  reactionCount: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
+  // Reply composer banner above the input bar.
+  replyBar: {
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderTopWidth: 1,
+    borderStartWidth: 3,
+  },
+  replyBarInfo: { flex: 1 },
+  replyBarTitle: { fontSize: 12.5, fontFamily: "Inter_600SemiBold" },
+  replyBarBody: { fontSize: 13, fontFamily: "Inter_400Regular", marginTop: 1 },
+  // Long-press action sheet.
+  sheetBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    justifyContent: "flex-end",
+  },
+  sheet: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingTop: 14,
+    paddingHorizontal: 16,
+    gap: 6,
+  },
+  sheetEmojis: {
+    justifyContent: "space-around",
+    alignItems: "center",
+    paddingVertical: 6,
+  },
+  sheetEmojiBtn: { paddingHorizontal: 6, paddingVertical: 4 },
+  sheetEmoji: { fontSize: 30 },
+  sheetAction: {
+    alignItems: "center",
+    gap: 10,
+    paddingVertical: 14,
+    paddingHorizontal: 4,
+  },
+  sheetActionText: { fontSize: 15, fontFamily: "Inter_500Medium" },
 });
