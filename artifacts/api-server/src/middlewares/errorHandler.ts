@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import { errorResponse } from "../validators/schemas";
+import { reportErrorAsync } from "../lib/errorReporter";
 
 type CodedError = { code?: string; message?: string };
 
@@ -30,7 +31,7 @@ export function notFoundHandler(req: Request, res: Response): void {
  */
 export function errorHandler(
   err: unknown,
-  _req: Request,
+  req: Request,
   res: Response,
   next: NextFunction,
 ): void {
@@ -52,6 +53,12 @@ export function errorHandler(
 
   // Always log the full error server-side; never leak internals on a 500.
   console.error("[Unhandled error]", err);
+
+  // Observability: only genuine server faults (500) are reported/alerted —
+  // expected client errors (400/401/404) are not noise. Fire-and-forget.
+  if (status === 500) {
+    reportErrorAsync(err, { path: req.path, method: req.method });
+  }
 
   const message = status === 500 ? "Internal server error" : e.message ?? "Request failed";
   res.status(status).json(errorResponse(code, message));
