@@ -994,25 +994,6 @@ export async function updateListing(
     { sellerId: user.id, sellerVerified: !!user.isVerified, excludeListingId: id, lenient: true, autoLearn: true }
   );
 
-  await db
-    .update(listings)
-    .set({
-      title: normalized.title,
-      description: normalized.description,
-      basePriceCash: updates.base_price_cash !== undefined ? String(updates.base_price_cash) : listing.basePriceCash,
-      location: normalized.locationCanonical ?? updates.location ?? listing.location,
-      locationId: normalized.locationId,
-      trustScore: normalized.trustScore,
-      isDuplicate: normalized.isDuplicate,
-      duplicateOfId: normalized.duplicateOfId,
-      isFlagged: normalized.isFlagged,
-      flagReason: normalized.flagReason,
-      // Only patch status when the caller provided it (mark sold / archive).
-      ...(updates.status ? { status: updates.status } : {}),
-      updatedAt: new Date(),
-    })
-    .where(eq(listings.id, id));
-
   // Additive (Task #40): only patch logistics when the caller provided it, so an
   // unrelated edit never wipes existing logistics back to null.
   const logisticsPatch =
@@ -1025,30 +1006,54 @@ export async function updateListing(
         }
       : {};
 
-  await db
-    .update(listingAttributes)
-    .set({
-      specs: normalized.specs,
-      brandId: normalized.taxonomy.brandId,
-      modelId: normalized.taxonomy.modelId,
-      variantId: normalized.taxonomy.variantId,
-      fuelType: normalized.taxonomy.fuelType,
-      condition: normalized.taxonomy.condition,
-      bodyType: normalized.taxonomy.bodyType,
-      transmission: normalized.taxonomy.transmission,
-      propertyType: normalized.taxonomy.propertyType,
-      finishingType: normalized.taxonomy.finishingType,
-      ownershipType: normalized.taxonomy.ownershipType,
-      industrialType: normalized.taxonomy.industrialType,
-      industry: normalized.taxonomy.industry,
-      propertyTypeId: normalized.taxonomy.propertyTypeId,
-      finishingTypeId: normalized.taxonomy.finishingTypeId,
-      ownershipTypeId: normalized.taxonomy.ownershipTypeId,
-      industrialTypeId: normalized.taxonomy.industrialTypeId,
-      industryId: normalized.taxonomy.industryId,
-      ...logisticsPatch,
-    } as Partial<typeof listingAttributes.$inferInsert>)
-    .where(eq(listingAttributes.listingId, id));
+  // Atomic edit: the listings row and its 1:1 attributes sidecar are written in a
+  // single transaction so a mid-edit failure can never leave them inconsistent
+  // (e.g. a new title with stale specs/taxonomy). Mirrors createListing.
+  await db.transaction(async (tx) => {
+    await tx
+      .update(listings)
+      .set({
+        title: normalized.title,
+        description: normalized.description,
+        basePriceCash: updates.base_price_cash !== undefined ? String(updates.base_price_cash) : listing.basePriceCash,
+        location: normalized.locationCanonical ?? updates.location ?? listing.location,
+        locationId: normalized.locationId,
+        trustScore: normalized.trustScore,
+        isDuplicate: normalized.isDuplicate,
+        duplicateOfId: normalized.duplicateOfId,
+        isFlagged: normalized.isFlagged,
+        flagReason: normalized.flagReason,
+        // Only patch status when the caller provided it (mark sold / archive).
+        ...(updates.status ? { status: updates.status } : {}),
+        updatedAt: new Date(),
+      })
+      .where(eq(listings.id, id));
+
+    await tx
+      .update(listingAttributes)
+      .set({
+        specs: normalized.specs,
+        brandId: normalized.taxonomy.brandId,
+        modelId: normalized.taxonomy.modelId,
+        variantId: normalized.taxonomy.variantId,
+        fuelType: normalized.taxonomy.fuelType,
+        condition: normalized.taxonomy.condition,
+        bodyType: normalized.taxonomy.bodyType,
+        transmission: normalized.taxonomy.transmission,
+        propertyType: normalized.taxonomy.propertyType,
+        finishingType: normalized.taxonomy.finishingType,
+        ownershipType: normalized.taxonomy.ownershipType,
+        industrialType: normalized.taxonomy.industrialType,
+        industry: normalized.taxonomy.industry,
+        propertyTypeId: normalized.taxonomy.propertyTypeId,
+        finishingTypeId: normalized.taxonomy.finishingTypeId,
+        ownershipTypeId: normalized.taxonomy.ownershipTypeId,
+        industrialTypeId: normalized.taxonomy.industrialTypeId,
+        industryId: normalized.taxonomy.industryId,
+        ...logisticsPatch,
+      } as Partial<typeof listingAttributes.$inferInsert>)
+      .where(eq(listingAttributes.listingId, id));
+  });
 
   // Durable audit trail for any abuse-flagged/demoted listing on edit.
   await auditListingFlag({
