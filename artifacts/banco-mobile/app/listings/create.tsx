@@ -65,7 +65,7 @@ import {
   SPEC_FIELDS_BY_UI,
   UI_CATEGORIES,
   apiCategoryForUi,
-  requiredSpecFieldsFor,
+  requiredSpecKeysFor,
   type UiListingCategory,
 } from "@/constants/listingCreateTaxonomy";
 import { buildPreviewFeedItem } from "@/constants/listingPreview";
@@ -237,13 +237,20 @@ export default function CreateListingScreen() {
     () => (category ? SPEC_FIELDS_BY_UI[category] : []),
     [category],
   );
+  // Which keys are required depends on the chosen sub-type — e.g. land/shop have
+  // no rooms/finishing, raw materials need no industry — so recompute as the spec
+  // values change. Mirrors the server floor (validateAttributes) exactly.
+  const requiredSpecKeys = useMemo(
+    () => (category ? requiredSpecKeysFor(category, specs) : []),
+    [category, specs],
+  );
   const requiredSpecFields = useMemo(
-    () => specFields.filter((f) => f.required),
-    [specFields],
+    () => specFields.filter((f) => requiredSpecKeys.includes(f.key)),
+    [specFields, requiredSpecKeys],
   );
   const optionalSpecFields = useMemo(
-    () => specFields.filter((f) => !f.required),
-    [specFields],
+    () => specFields.filter((f) => !requiredSpecKeys.includes(f.key)),
+    [specFields, requiredSpecKeys],
   );
 
   const setSpec = (key: string, value: string) =>
@@ -797,7 +804,7 @@ export default function CreateListingScreen() {
           return t("create.errIndustrialType");
         }
         if (category) {
-          for (const f of requiredSpecFieldsFor(category)) {
+          for (const f of requiredSpecFields) {
             if (!specs[f.key]?.trim()) {
               return t("create.errSpecRequired", { field: t(f.labelKey) });
             }

@@ -236,3 +236,38 @@ export const requiredSpecFieldsFor = (ui: UiListingCategory): SpecField[] => {
   const required = new Set(REQUIRED_SPEC_KEYS[ui]);
   return SPEC_FIELDS_BY_UI[ui].filter((f) => required.has(f.key));
 };
+
+/**
+ * Real-estate property types that have no rooms/finishing — raw land and bare
+ * commercial units. For these, rooms + finishing are NOT required (a plot of
+ * land has no room count, no finishing level). Mirrors the server floor in
+ * validateAttributes so the mobile gate and the API never disagree.
+ */
+export const REAL_ESTATE_NO_ROOMS_TYPES = ["land", "shop", "office", "clinic"] as const;
+
+/**
+ * Effective required spec keys given the CURRENT field values — most are static
+ * (REQUIRED_SPEC_KEYS) but a few only apply to a sub-type, so a listing is never
+ * forced to invent a value that doesn't fit reality:
+ * - real_estate: rooms + finishing are dropped for land/shop/office/clinic.
+ * - raw_materials: `industry` (a manufacturing-sector concept) is never required
+ *   — a raw material is defined by its `material`, not by a factory industry.
+ * KEEP IN SYNC with the server floors (api-server validateAttributes).
+ */
+export function requiredSpecKeysFor(
+  ui: UiListingCategory,
+  specs: Record<string, string | undefined>
+): string[] {
+  const base = [...REQUIRED_SPEC_KEYS[ui]];
+  if (ui === "real_estate") {
+    const pt = specs.property_type ?? "";
+    if ((REAL_ESTATE_NO_ROOMS_TYPES as readonly string[]).includes(pt)) {
+      return base.filter((k) => k !== "rooms" && k !== "finishing");
+    }
+    return base;
+  }
+  if (ui === "raw_materials") {
+    return base.filter((k) => k !== "industry");
+  }
+  return base;
+}

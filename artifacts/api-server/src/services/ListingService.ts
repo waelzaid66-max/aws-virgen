@@ -140,11 +140,20 @@ export function validateAttributes(
 
   const required: Record<string, string[]> = {
     car: ["mileage", "condition"],
-    real_estate: ["area", "rooms"],
+    real_estate: ["area"],
     industrial: ["capacity"],
   };
 
-  const requiredKeys = required[category] ?? [];
+  const requiredKeys = [...(required[category] ?? [])];
+  // Real-estate: a room count is meaningful for built units but not for raw land
+  // or bare commercial plots — require `rooms` for everything EXCEPT those, so a
+  // land listing is never forced to invent one. Mirrors the mobile gate
+  // (requiredSpecKeysFor / REAL_ESTATE_NO_ROOMS_TYPES).
+  if (category === "real_estate") {
+    const noRooms = ["land", "shop", "office", "clinic"];
+    const pt = typeof specs.property_type === "string" ? specs.property_type : "";
+    if (!noRooms.includes(pt)) requiredKeys.push("rooms");
+  }
   for (const key of requiredKeys) {
     if (!(key in specs) || specs[key] === null || specs[key] === undefined || specs[key] === "") {
       errors.push(`Missing required attribute for ${category}: ${key}`);
