@@ -25,6 +25,7 @@ import MonitoringPage from "./pages/monitoring";
 import AlertsPage from "./pages/alerts";
 import PromoPage from "./pages/promo";
 import SettingsPage from "./pages/settings";
+import PlansPage from "./pages/plans";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
@@ -220,6 +221,7 @@ function ClerkProviderWithRoutes() {
           <Route path="/fraud" component={() => <Guarded><FraudPage /></Guarded>} />
           <Route path="/monitoring" component={() => <Guarded><MonitoringPage /></Guarded>} />
           <Route path="/alerts" component={() => <Guarded><AlertsPage /></Guarded>} />
+          <Route path="/plans" component={() => <Guarded><PlansPage /></Guarded>} />
           <Route path="/promo" component={() => <Guarded><PromoPage /></Guarded>} />
           <Route path="/settings" component={() => <Guarded><SettingsPage /></Guarded>} />
           

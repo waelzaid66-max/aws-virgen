@@ -18,6 +18,7 @@ import {
   Bell,
   Settings,
   Gift,
+  Wallet,
   Landmark
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -38,6 +39,7 @@ const NAV_ITEMS: { href: string; label: string; icon: typeof LayoutDashboard; pe
   { href: "/fraud", label: "Fraud Signals", icon: Shield, permission: "manage_reports" },
   { href: "/monitoring", label: "Monitoring", icon: Radio, permission: "view_admin" },
   { href: "/alerts", label: "Alerts", icon: Bell, permission: "view_admin" },
+  { href: "/plans", label: "Plans & Pricing", icon: Wallet, permission: "manage_payments" },
   { href: "/promo", label: "Free Ad Credit", icon: Gift, permission: "manage_payments" },
   { href: "/settings", label: "Payment Settings", icon: Settings, permission: "manage_payments" },
 ];
