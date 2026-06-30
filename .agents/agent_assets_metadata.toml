@@ -83,3 +83,9 @@ id = "BYtUsfnqa63EbpVhmInh8"
 uri = "file://attached_assets/stock_images/new_cars_showroom_lineup_4.jpg"
 type = "image"
 title = "row of brand new cars lined up front view in a bright modern car dealership showroom"
+
+[[outputs]]
+id = "cTP31Q7keqER8-T7i3W_3"
+uri = "file://database_backup.dump.gz"
+type = "unspecified"
+title = "database_backup.dump.gz — نسخة احتياطية مضغوطة للقاعدة الحالية"
