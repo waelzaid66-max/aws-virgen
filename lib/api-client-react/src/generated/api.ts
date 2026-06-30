@@ -118,6 +118,8 @@ import type {
   GetListingComments200,
   GetListings200,
   GetListingsParams,
+  GetMapClusters200,
+  GetMapClustersParams,
   GetMarketTrends200,
   GetMarketTrendsParams,
   GetMe200,
@@ -1373,6 +1375,91 @@ export function useSearchListings<TData = Awaited<ReturnType<typeof searchListin
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getSearchListingsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getGetMapClustersUrl = (params: GetMapClustersParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/v1/search/map?${stringifiedParams}` : `/api/v1/search/map`
+}
+
+/**
+ * The SAME filters as /v1/search (so the map and list stay consistent), within a viewport bounding box, aggregated into a zoom-dependent grid. Returns one cluster per occupied cell (centroid + count); listing_id is set only when a cell holds exactly one listing (a tappable pin). offer_type=rent powers the Booking-style rental map for real-estate, land and factories.
+ * @summary Server-side clustered listing pins for a map viewport
+ */
+export const getMapClusters = async (params: GetMapClustersParams, options?: RequestInit): Promise<GetMapClusters200> => {
+
+  return customFetch<GetMapClusters200>(getGetMapClustersUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetMapClustersQueryKey = (params?: GetMapClustersParams,) => {
+    return [
+    `/api/v1/search/map`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetMapClustersQueryOptions = <TData = Awaited<ReturnType<typeof getMapClusters>>, TError = ErrorType<unknown>>(params: GetMapClustersParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMapClusters>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetMapClustersQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getMapClusters>>> = ({ signal }) => getMapClusters(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getMapClusters>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetMapClustersQueryResult = NonNullable<Awaited<ReturnType<typeof getMapClusters>>>
+export type GetMapClustersQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Server-side clustered listing pins for a map viewport
+ */
+
+export function useGetMapClusters<TData = Awaited<ReturnType<typeof getMapClusters>>, TError = ErrorType<unknown>>(
+ params: GetMapClustersParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMapClusters>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetMapClustersQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

@@ -2100,6 +2100,28 @@ components:
             slug:
               type: string
 
+    MapCluster:
+      type: object
+      description: >
+        One occupied grid cell on the map — its centroid and how many listings it
+        aggregates. listing_id is set ONLY when count is 1 (a single tappable pin);
+        for multi-listing cells it is null and the client shows a count bubble.
+      required:
+        - lat
+        - lng
+        - count
+        - listing_id
+      properties:
+        lat:
+          type: number
+        lng:
+          type: number
+        count:
+          type: integer
+        listing_id:
+          type: string
+          nullable: true
+
     PromoCampaignView:
       type: object
       description: >
@@ -3971,6 +3993,127 @@ paths:
                     type: array
                     items:
                       $ref: "#/components/schemas/FeedItem"
+                  error:
+                    $ref: "#/components/schemas/ApiError"
+                    nullable: true
+                  meta:
+                    $ref: "#/components/schemas/Meta"
+
+  /v1/search/map:
+    get:
+      operationId: getMapClusters
+      summary: Server-side clustered listing pins for a map viewport
+      description: >-
+        The SAME filters as /v1/search (so the map and list stay consistent),
+        within a viewport bounding box, aggregated into a zoom-dependent grid.
+        Returns one cluster per occupied cell (centroid + count); listing_id is set
+        only when a cell holds exactly one listing (a tappable pin). offer_type=rent
+        powers the Booking-style rental map for real-estate, land and factories.
+      tags: [search]
+      parameters:
+        - in: query
+          name: min_lat
+          required: true
+          schema: { type: number }
+        - in: query
+          name: max_lat
+          required: true
+          schema: { type: number }
+        - in: query
+          name: min_lng
+          required: true
+          schema: { type: number }
+        - in: query
+          name: max_lng
+          required: true
+          schema: { type: number }
+        - in: query
+          name: zoom
+          required: true
+          description: Map zoom level (0-22); sets the cluster grid granularity.
+          schema: { type: number }
+        - in: query
+          name: q
+          schema: { type: string }
+        - in: query
+          name: category
+          schema: { type: string, enum: [car, real_estate, industrial] }
+        - in: query
+          name: is_request
+          schema: { type: boolean }
+        - in: query
+          name: min_price
+          schema: { type: number }
+        - in: query
+          name: max_price
+          schema: { type: number }
+        - in: query
+          name: location
+          schema: { type: string }
+        - in: query
+          name: has_installment
+          schema: { type: boolean }
+        - in: query
+          name: industrial_type
+          schema: { type: string }
+        - in: query
+          name: condition
+          schema: { type: string, enum: [new, used] }
+        - in: query
+          name: payment_plan
+          schema: { type: string, enum: [installment, bank, direct, islamic] }
+        - in: query
+          name: property_type
+          schema: { type: string }
+        - in: query
+          name: finishing_type
+          schema: { type: string }
+        - in: query
+          name: compound
+          schema: { type: boolean }
+        - in: query
+          name: furnished
+          schema: { type: boolean }
+        - in: query
+          name: offer_type
+          description: sale (تمليك) or rent (إيجار).
+          schema: { type: string, enum: [sale, rent] }
+        - in: query
+          name: fuel_type
+          schema: { type: string, enum: [petrol, diesel, hybrid, electric, natural_gas] }
+        - in: query
+          name: transmission
+          schema: { type: string, enum: [manual, automatic, cvt] }
+        - in: query
+          name: brand
+          schema: { type: string }
+        - in: query
+          name: model
+          schema: { type: string }
+        - in: query
+          name: min_year
+          schema: { type: integer }
+        - in: query
+          name: max_year
+          schema: { type: integer }
+        - in: query
+          name: industry
+          schema: { type: string, enum: [food, beverage, plastic, textile, pharmaceutical, chemical, engineering, other] }
+        - in: query
+          name: origin_type
+          schema: { type: string, enum: [local, imported] }
+      responses:
+        "200":
+          description: Map clusters
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/MapCluster"
                   error:
                     $ref: "#/components/schemas/ApiError"
                     nullable: true

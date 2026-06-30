@@ -646,6 +646,60 @@ export const SearchListingsResponse = zod.object({
 
 
 /**
+ * The SAME filters as /v1/search (so the map and list stay consistent), within a viewport bounding box, aggregated into a zoom-dependent grid. Returns one cluster per occupied cell (centroid + count); listing_id is set only when a cell holds exactly one listing (a tappable pin). offer_type=rent powers the Booking-style rental map for real-estate, land and factories.
+ * @summary Server-side clustered listing pins for a map viewport
+ */
+export const GetMapClustersQueryParams = zod.object({
+  "min_lat": zod.coerce.number(),
+  "max_lat": zod.coerce.number(),
+  "min_lng": zod.coerce.number(),
+  "max_lng": zod.coerce.number(),
+  "zoom": zod.coerce.number().describe('Map zoom level (0-22); sets the cluster grid granularity.'),
+  "q": zod.coerce.string().optional(),
+  "category": zod.enum(['car', 'real_estate', 'industrial']).optional(),
+  "is_request": zod.coerce.boolean().optional(),
+  "min_price": zod.coerce.number().optional(),
+  "max_price": zod.coerce.number().optional(),
+  "location": zod.coerce.string().optional(),
+  "has_installment": zod.coerce.boolean().optional(),
+  "industrial_type": zod.coerce.string().optional(),
+  "condition": zod.enum(['new', 'used']).optional(),
+  "payment_plan": zod.enum(['installment', 'bank', 'direct', 'islamic']).optional(),
+  "property_type": zod.coerce.string().optional(),
+  "finishing_type": zod.coerce.string().optional(),
+  "compound": zod.coerce.boolean().optional(),
+  "furnished": zod.coerce.boolean().optional(),
+  "offer_type": zod.enum(['sale', 'rent']).optional().describe('sale (تمليك) or rent (إيجار).'),
+  "fuel_type": zod.enum(['petrol', 'diesel', 'hybrid', 'electric', 'natural_gas']).optional(),
+  "transmission": zod.enum(['manual', 'automatic', 'cvt']).optional(),
+  "brand": zod.coerce.string().optional(),
+  "model": zod.coerce.string().optional(),
+  "min_year": zod.coerce.number().optional(),
+  "max_year": zod.coerce.number().optional(),
+  "industry": zod.enum(['food', 'beverage', 'plastic', 'textile', 'pharmaceutical', 'chemical', 'engineering', 'other']).optional(),
+  "origin_type": zod.enum(['local', 'imported']).optional()
+})
+
+export const GetMapClustersResponse = zod.object({
+  "data": zod.array(zod.object({
+  "lat": zod.number(),
+  "lng": zod.number(),
+  "count": zod.number(),
+  "listing_id": zod.string().nullable()
+}).describe('One occupied grid cell on the map — its centroid and how many listings it aggregates. listing_id is set ONLY when count is 1 (a single tappable pin); for multi-listing cells it is null and the client shows a count bubble.\n')).optional(),
+  "error": zod.object({
+  "code": zod.enum(['INVALID_DATA', 'NOT_FOUND', 'UNAUTHORIZED', 'INTERNAL_ERROR', 'FORBIDDEN', 'RATE_LIMITED']),
+  "message": zod.string()
+}).nullish(),
+  "meta": zod.object({
+  "cursor": zod.string().optional(),
+  "has_next": zod.boolean().optional(),
+  "total": zod.number().optional()
+}).optional()
+})
+
+
+/**
  * Counts of active, publicly-visible listings grouped by each filterable attribute, optionally scoped to a category. Each count uses the same column/specs matching logic as the search filters, so a chip's badge count equals the size of the result set that chip produces. Clients gate filter chips on count > 0 to avoid offering filters that return nothing.
  * @summary Per-value counts of the currently-visible inventory
  */

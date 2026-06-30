@@ -907,6 +907,27 @@ export const SearchQuerySchema = z.object({
   limit: z.coerce.number().min(1).max(50).default(20),
 });
 
+// GET /v1/search/map — server-side clustered pins for the current viewport.
+// SAME filters as search (so map and list stay consistent) PLUS the bounding box
+// + zoom. Inherits every engine filter, incl. offer_type (rent/sale) so the
+// Booking-style "rentals on a map" works for real-estate, land and factories.
+export const MapClustersQuerySchema = SearchQuerySchema.extend({
+  min_lat: z.coerce.number().min(-90).max(90),
+  max_lat: z.coerce.number().min(-90).max(90),
+  min_lng: z.coerce.number().min(-180).max(180),
+  max_lng: z.coerce.number().min(-180).max(180),
+  zoom: z.coerce.number().min(0).max(22),
+});
+
+export const MapClusterSchema = z
+  .object({
+    lat: z.number(),
+    lng: z.number(),
+    count: z.number(),
+    listing_id: z.string().nullable(),
+  })
+  .strict();
+
 // GET /v1/search/facets — per-value counts of the currently-visible inventory,
 // optionally scoped to a category. The client gates chips on count > 0 so it
 // never offers a filter that would return an empty page.

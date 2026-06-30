@@ -1,6 +1,7 @@
 import { Router } from "express";
 import {
   searchHandler,
+  mapClustersHandler,
   autocompleteHandler,
   facetsHandler,
   trendingHandler,
@@ -12,6 +13,7 @@ import { searchRateLimiter, publicRateLimiter } from "../../middlewares/rateLimi
 const router = Router();
 
 router.get("/", searchRateLimiter, optionalAuth, searchHandler);
+router.get("/map", searchRateLimiter, mapClustersHandler);
 router.get("/autocomplete", publicRateLimiter, autocompleteHandler);
 router.get("/facets", publicRateLimiter, facetsHandler);
 router.get("/trending", publicRateLimiter, trendingHandler);

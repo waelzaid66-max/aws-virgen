@@ -1499,6 +1499,16 @@ export type AdminPlanCreate = AdminPlanUpdate & {
   slug: string;
 };
 
+/**
+ * One occupied grid cell on the map — its centroid and how many listings it aggregates. listing_id is set ONLY when count is 1 (a single tappable pin); for multi-listing cells it is null and the client shows a count bubble.
+ */
+export interface MapCluster {
+  lat: number;
+  lng: number;
+  count: number;
+  listing_id: string | null;
+}
+
 export type PromoCampaignViewStatus = typeof PromoCampaignViewStatus[keyof typeof PromoCampaignViewStatus];
 
 
@@ -2787,6 +2797,126 @@ export const SearchListingsSort = {
 
 export type SearchListings200 = {
   data?: FeedItem[];
+  error?: ApiError | null;
+  meta?: Meta;
+};
+
+export type GetMapClustersParams = {
+min_lat: number;
+max_lat: number;
+min_lng: number;
+max_lng: number;
+/**
+ * Map zoom level (0-22); sets the cluster grid granularity.
+ */
+zoom: number;
+q?: string;
+category?: GetMapClustersCategory;
+is_request?: boolean;
+min_price?: number;
+max_price?: number;
+location?: string;
+has_installment?: boolean;
+industrial_type?: string;
+condition?: GetMapClustersCondition;
+payment_plan?: GetMapClustersPaymentPlan;
+property_type?: string;
+finishing_type?: string;
+compound?: boolean;
+furnished?: boolean;
+/**
+ * sale (تمليك) or rent (إيجار).
+ */
+offer_type?: GetMapClustersOfferType;
+fuel_type?: GetMapClustersFuelType;
+transmission?: GetMapClustersTransmission;
+brand?: string;
+model?: string;
+min_year?: number;
+max_year?: number;
+industry?: GetMapClustersIndustry;
+origin_type?: GetMapClustersOriginType;
+};
+
+export type GetMapClustersCategory = typeof GetMapClustersCategory[keyof typeof GetMapClustersCategory];
+
+
+export const GetMapClustersCategory = {
+  car: 'car',
+  real_estate: 'real_estate',
+  industrial: 'industrial',
+} as const;
+
+export type GetMapClustersCondition = typeof GetMapClustersCondition[keyof typeof GetMapClustersCondition];
+
+
+export const GetMapClustersCondition = {
+  new: 'new',
+  used: 'used',
+} as const;
+
+export type GetMapClustersPaymentPlan = typeof GetMapClustersPaymentPlan[keyof typeof GetMapClustersPaymentPlan];
+
+
+export const GetMapClustersPaymentPlan = {
+  installment: 'installment',
+  bank: 'bank',
+  direct: 'direct',
+  islamic: 'islamic',
+} as const;
+
+export type GetMapClustersOfferType = typeof GetMapClustersOfferType[keyof typeof GetMapClustersOfferType];
+
+
+export const GetMapClustersOfferType = {
+  sale: 'sale',
+  rent: 'rent',
+} as const;
+
+export type GetMapClustersFuelType = typeof GetMapClustersFuelType[keyof typeof GetMapClustersFuelType];
+
+
+export const GetMapClustersFuelType = {
+  petrol: 'petrol',
+  diesel: 'diesel',
+  hybrid: 'hybrid',
+  electric: 'electric',
+  natural_gas: 'natural_gas',
+} as const;
+
+export type GetMapClustersTransmission = typeof GetMapClustersTransmission[keyof typeof GetMapClustersTransmission];
+
+
+export const GetMapClustersTransmission = {
+  manual: 'manual',
+  automatic: 'automatic',
+  cvt: 'cvt',
+} as const;
+
+export type GetMapClustersIndustry = typeof GetMapClustersIndustry[keyof typeof GetMapClustersIndustry];
+
+
+export const GetMapClustersIndustry = {
+  food: 'food',
+  beverage: 'beverage',
+  plastic: 'plastic',
+  textile: 'textile',
+  pharmaceutical: 'pharmaceutical',
+  chemical: 'chemical',
+  engineering: 'engineering',
+  other: 'other',
+} as const;
+
+export type GetMapClustersOriginType = typeof GetMapClustersOriginType[keyof typeof GetMapClustersOriginType];
+
+
+export const GetMapClustersOriginType = {
+  local: 'local',
+  imported: 'imported',
+} as const;
+
+export type GetMapClusters200 = {
+  data?: MapCluster[];
   error?: ApiError | null;
   meta?: Meta;
 };
