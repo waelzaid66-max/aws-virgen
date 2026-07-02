@@ -4342,7 +4342,7 @@ paths:
                   type: string
                 action:
                   type: string
-                  enum: [view, click, scroll_fast, scroll_slow, category_tap, open_detail]
+                  enum: [view, click, scroll_fast, scroll_slow, category_tap, open_detail, interested, angry]
                 category:
                   type: string
                   enum: [car, real_estate, industrial]

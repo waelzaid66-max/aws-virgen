@@ -1246,6 +1246,13 @@ export default function CreateListingScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.successHero}>
+            {/* The brand seals the moment: the official B-OOM wordmark above the
+                success check — identity, not decoration. */}
+            <Image
+              source={require("@/assets/images/boom-logo.png")}
+              style={styles.successLogo}
+              contentFit="contain"
+            />
             <View
               style={[
                 styles.successIcon,
@@ -3125,6 +3132,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   successHero: { alignItems: "center", gap: 8, marginTop: 16 },
+  successLogo: { width: 148, height: 56, marginBottom: 2 },
   successIcon: {
     width: 76,
     height: 76,

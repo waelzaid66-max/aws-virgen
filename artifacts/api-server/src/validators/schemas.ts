@@ -1133,6 +1133,10 @@ export const BehaviorSignalSchema = z.object({
     "scroll_slow",
     "category_tap",
     "open_detail",
+    // B-reaction signals (long-press on the identity B): explicit interest and
+    // explicit rejection — both feed the adaptive feed's personalization.
+    "interested",
+    "angry",
   ]),
   category: z.enum(["car", "real_estate", "industrial"]).optional(),
   price: z.number().optional(),

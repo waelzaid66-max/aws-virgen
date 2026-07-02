@@ -70,6 +70,18 @@ export function updateSession(
   if (action === "click" || action === "open_detail") {
     session.clicks++;
   }
+  // B-reactions: "interested" is a deliberate positive — counts as a click AND
+  // gets the generic category bump below. "angry" is a deliberate rejection —
+  // pull the category's affinity down (net -1 after the generic +1, floor 0).
+  if (action === "interested") {
+    session.clicks++;
+  }
+  if (action === "angry" && data?.category) {
+    session.category_counts[data.category] = Math.max(
+      0,
+      (session.category_counts[data.category] ?? 0) - 2,
+    );
+  }
   if (action === "scroll_fast") {
     session.scroll_depth += 5;
   }

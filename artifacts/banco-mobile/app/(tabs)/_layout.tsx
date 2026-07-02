@@ -26,6 +26,7 @@ import Animated, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppText } from "@/components/AppText";
+import { BGlyph } from "@/components/BReactionButton";
 import { useI18n } from "@/context/LanguageContext";
 import { useColors } from "@/hooks/useColors";
 import { PostAssetFab } from "@/components/PostAssetFab";
@@ -248,6 +249,13 @@ function CapsuleTabBar({ state, navigation }: TabBarProps) {
                     contentFit="cover"
                     transition={120}
                   />
+                ) : route.name === "saved" ? (
+                  // The identity "B" replaces the heart — the exact logo glyph,
+                  // static and crisp (never animated in the tab bar). Focus is
+                  // communicated by opacity so the metallic texture stays intact.
+                  <View style={{ opacity: focused ? 1 : 0.45 }}>
+                    <BGlyph height={22} />
+                  </View>
                 ) : (
                   <TabBarIcon name={cfg.icon} color={tint} focused={focused} />
                 )}

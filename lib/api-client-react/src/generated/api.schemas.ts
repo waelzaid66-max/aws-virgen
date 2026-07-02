@@ -3032,6 +3032,8 @@ export const SendBehaviorSignalBodyAction = {
   scroll_slow: 'scroll_slow',
   category_tap: 'category_tap',
   open_detail: 'open_detail',
+  interested: 'interested',
+  angry: 'angry',
 } as const;
 
 export type SendBehaviorSignalBodyCategory = typeof SendBehaviorSignalBodyCategory[keyof typeof SendBehaviorSignalBodyCategory];

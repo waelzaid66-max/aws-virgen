@@ -879,7 +879,7 @@ export const ContactLeadResponse = zod.object({
 export const SendBehaviorSignalBody = zod.object({
   "session_id": zod.string(),
   "listing_id": zod.string().optional(),
-  "action": zod.enum(['view', 'click', 'scroll_fast', 'scroll_slow', 'category_tap', 'open_detail']),
+  "action": zod.enum(['view', 'click', 'scroll_fast', 'scroll_slow', 'category_tap', 'open_detail', 'interested', 'angry']),
   "category": zod.enum(['car', 'real_estate', 'industrial']).optional(),
   "price": zod.number().optional()
 })

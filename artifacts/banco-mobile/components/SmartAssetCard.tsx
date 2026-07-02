@@ -10,7 +10,9 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 
-import { FeedItem } from "@workspace/api-client-react";
+import { FeedItem, sendBehaviorSignal } from "@workspace/api-client-react";
+
+import { BReactionButton } from "@/components/BReactionButton";
 import { isVerifiedSignal } from "@/constants/feed";
 import { useColors } from "@/hooks/useColors";
 import { useI18n } from "@/context/LanguageContext";
@@ -52,7 +54,7 @@ function SmartAssetCardComponent({
 }: SmartAssetCardProps) {
   const colors = useColors();
   const { t } = useI18n();
-  const { cacheFeedItem } = useSession();
+  const { cacheFeedItem, sessionId } = useSession();
 
   const reduceMotion = useReducedMotion();
   const scale = useSharedValue(1);
@@ -93,6 +95,18 @@ function SmartAssetCardComponent({
   const handleSave = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     onSave?.(item);
+  };
+
+  // B-reactions (long-press on the identity B): real personalization signals —
+  // "interested" boosts this category's affinity in the adaptive feed, "angry"
+  // lowers it. Fire-and-forget; a network hiccup never touches the UI.
+  const sendReaction = (action: "interested" | "angry") => {
+    void sendBehaviorSignal({
+      session_id: sessionId,
+      listing_id: item.id,
+      action,
+      category: item.category ?? undefined,
+    }).catch(() => {});
   };
 
   const handleShare = () => {
@@ -175,18 +189,17 @@ function SmartAssetCardComponent({
                 <Ionicons name="share-social-outline" size={20} color="#FFFFFF" />
               </Pressable>
               {onSave && (
-                <Pressable
-                  style={styles.actionBtn}
-                  onPress={handleSave}
-                  testID={`save-${item.id}`}
-                  hitSlop={8}
-                >
-                  <Ionicons
-                    name={saveIconFor(item.category, isSaved)}
-                    size={22}
-                    color={isSaved ? colors.primary : "#FFFFFF"}
+                <View style={styles.actionBtn}>
+                  <BReactionButton
+                    saved={!!isSaved}
+                    likeIcon={saveIconFor(item.category, true)}
+                    onLike={handleSave}
+                    onInterested={() => sendReaction("interested")}
+                    onAngry={() => sendReaction("angry")}
+                    height={22}
+                    testID={`save-${item.id}`}
                   />
-                </Pressable>
+                </View>
               )}
             </View>
           </View>
