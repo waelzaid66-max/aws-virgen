@@ -55,7 +55,14 @@ STATUS_REPORT.md  living completion/verification report
 
 **On Replit (primary environment):** the workspace workflows run the API server and surfaces; secrets (DATABASE_URL, Clerk, Paymob, Resend, Object Storage, `OPENAI_API_KEY`) live in the Replit secrets store. `.replit` + `replit.md` are checked in, so importing this repo boots without re-learning.
 
-**Locally:**
+**Turbo (one command):**
+```bash
+./turbo.sh          # API server (Replit/Linux)   |   Windows: .\turbo.ps1
+./turbo.sh all      # API + Admin + Market + Landing
+./turbo.sh check    # typecheck everything + backend tests
+```
+
+**Locally (manual):**
 ```bash
 pnpm install
 # API (needs PORT + DATABASE_URL):

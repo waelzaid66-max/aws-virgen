@@ -26,6 +26,7 @@ import AlertsPage from "./pages/alerts";
 import PromoPage from "./pages/promo";
 import SettingsPage from "./pages/settings";
 import PlansPage from "./pages/plans";
+import { LanguageProvider } from "./context/LanguageContext";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
@@ -239,8 +240,10 @@ export default function App() {
   }, []);
   
   return (
-    <WouterRouter base={basePath}>
-      <ClerkProviderWithRoutes />
-    </WouterRouter>
+    <LanguageProvider>
+      <WouterRouter base={basePath}>
+        <ClerkProviderWithRoutes />
+      </WouterRouter>
+    </LanguageProvider>
   );
 }
