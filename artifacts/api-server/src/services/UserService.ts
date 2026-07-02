@@ -4,6 +4,7 @@ import { eq, and, ne, isNull } from "drizzle-orm";
 import { clerkClient } from "@clerk/express";
 import { logger } from "../lib/logger";
 import { checkProfileMutationRate, flagDuplicateAccount } from "./AbuseService";
+import { sendWelcomeEmail } from "./EmailService";
 
 export async function getOrCreateUser(clerkId: string, data?: { name?: string; email?: string }) {
   const [existing] = await db
@@ -24,6 +25,14 @@ export async function getOrCreateUser(clerkId: string, data?: { name?: string; e
       isVerified: false,
     })
     .returning();
+
+  // First touch — professional welcome. Strictly fire-and-forget: an email
+  // provider hiccup must never slow down or fail account creation.
+  if (created?.email) {
+    void sendWelcomeEmail({ to: created.email, name: created.name }).catch((err) =>
+      logger.warn({ err }, "welcome email failed (non-blocking)"),
+    );
+  }
 
   return created;
 }

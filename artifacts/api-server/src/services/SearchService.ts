@@ -855,9 +855,19 @@ export async function enrichListings(
 
   // Opt-in WhatsApp lives inside the per-listing specs JSON (default off).
   const whatsappByListing = new Map<string, boolean>();
+  // Rental context (offer_type + rental_term) — drives the honest price-period
+  // suffix on rentals ("/شهر", "/يوم", "/سنة"). Same attrRows fetch: zero cost.
+  const rentalByListing = new Map<
+    string,
+    { offer_type?: string; rental_term?: string }
+  >();
   for (const a of attrRows) {
     const specs = (a.specs ?? {}) as Record<string, unknown>;
     whatsappByListing.set(a.listingId, specs.whatsapp_enabled === true);
+    rentalByListing.set(a.listingId, {
+      offer_type: typeof specs.offer_type === "string" ? specs.offer_type : undefined,
+      rental_term: typeof specs.rental_term === "string" ? specs.rental_term : undefined,
+    });
   }
 
   const mediaByListing = new Map<string, typeof mediaRows>();
@@ -919,6 +929,8 @@ export async function enrichListings(
       best_offer_badge: offers.best_offer_badge,
       industrial_type: row.industrial_type ?? null,
       whatsapp_enabled: whatsappByListing.get(row.id) ?? false,
+      offer_type: rentalByListing.get(row.id)?.offer_type ?? null,
+      rental_term: rentalByListing.get(row.id)?.rental_term ?? null,
     };
   });
 }

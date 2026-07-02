@@ -91,5 +91,12 @@ describe("SearchService — rental_term (Egypt rental regimes)", () => {
     expect(allIds).toContain(daily);
     expect(allIds).toContain(newLaw);
     expect(allIds).toContain(oldLaw);
+
+    // Honest price-period suffix: rentals are quoted per period, per their
+    // actual rental system (daily furnished → /يوم, laws → /شهر).
+    const byId = new Map(all.items.map((i) => [i.id, i.price_display]));
+    expect(byId.get(daily)).toContain("/يوم");
+    expect(byId.get(newLaw)).toContain("/شهر");
+    expect(byId.get(oldLaw)).toContain("/شهر");
   });
 });

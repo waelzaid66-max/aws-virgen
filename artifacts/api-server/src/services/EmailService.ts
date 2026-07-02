@@ -266,6 +266,54 @@ export async function sendLeadNotificationEmail(args: {
 }
 
 /**
+ * Welcome email on first account creation — the professional first touch. No
+ * fabricated numbers: it only states what the platform actually does and where
+ * to start. Caller fires it best-effort; a failure never blocks sign-up.
+ */
+export async function sendWelcomeEmail(args: {
+  to: string;
+  lang?: EmailLang;
+  name: string;
+}): Promise<void> {
+  const lang: EmailLang = args.lang ?? "ar";
+  const ar = lang === "ar";
+  const { transport, appUrl } = await resolveEmailRuntime();
+  const cta = appUrl("/");
+
+  const { html, text } = renderEmail({
+    lang,
+    preheader: ar
+      ? "حسابك على BANCO جاهز — ابدأ البيع والشراء بأمان"
+      : "Your BANCO account is ready — buy & sell with confidence",
+    heading: ar ? `أهلاً بيك يا ${args.name} 👋` : `Welcome, ${args.name} 👋`,
+    intro: ar
+      ? "حسابك اتفعّل. BANCO سوق موثوق للعربيات والعقارات (بيع وإيجار) والأصول الصناعية — تنشر إعلانك في دقيقة، تتواصل بأمان داخل التطبيق، ومن غير وسطاء."
+      : "Your account is live. BANCO is a trusted marketplace for cars, real estate (sale & rent) and industrial assets — publish in a minute, chat safely in-app, no middlemen.",
+    rows: [
+      {
+        label: ar ? "ابدأ صح" : "Start right",
+        value: ar ? "أضف أول إعلان بصورة واضحة وسعر حقيقي" : "Post your first listing with a clear photo and a real price",
+      },
+      {
+        label: ar ? "بأمان" : "Stay safe",
+        value: ar ? "خلّي التواصل والدفع داخل BANCO" : "Keep contact & payments inside BANCO",
+      },
+    ],
+    cta: cta ? { label: ar ? "افتح BANCO" : "Open BANCO", url: cta } : undefined,
+    footer: ar
+      ? "وصلك الإيميل ده لأنك أنشأت حساب على BANCO. تقدر تدير إشعارات البريد من الإعدادات."
+      : "You received this because you created a BANCO account. Manage email alerts in Settings.",
+  });
+
+  await transport.send({
+    to: args.to,
+    subject: ar ? "أهلاً بيك في BANCO 🎉" : "Welcome to BANCO 🎉",
+    html,
+    text,
+  });
+}
+
+/**
  * Weekly activity digest for a seller. All numbers are computed from real data
  * by the caller (the weekly-reports job) — never fabricated here.
  */

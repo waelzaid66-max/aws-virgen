@@ -31,6 +31,22 @@ interface RawListingRow {
   // Additive: buyer "request/wanted" post. Drives the price_display fallback
   // and the client "طلب / Wanted" badge. Optional/nullable for legacy rows.
   is_request?: boolean | null;
+  // Additive: rental context from specs — drives the honest price-period suffix.
+  offer_type?: string | null;
+  rental_term?: string | null;
+}
+
+/**
+ * Rentals are quoted per period, not as a lump sum — showing "15K EGP" alone on
+ * a rental misleads. The suffix follows the listing's actual rental system:
+ * furnished_daily → /يوم, annual_contract (Gulf yearly tenancy) → /سنة,
+ * everything else rented (new_law / old_law / unspecified) → /شهر (the EG norm).
+ */
+function rentPeriodSuffix(row: RawListingRow): string {
+  if (row.offer_type !== "rent") return "";
+  if (row.rental_term === "furnished_daily") return " /يوم";
+  if (row.rental_term === "annual_contract") return " /سنة";
+  return " /شهر";
 }
 
 function formatEGP(value: string | number): string {
@@ -86,7 +102,7 @@ export function transformToFeedItem(row: RawListingRow): FeedItem | null {
     // surface an honest "price requested" label instead of "0 EGP".
     price_display: row.is_request
       ? "طلب سعر / Price requested"
-      : formatEGP(row.base_price_cash),
+      : formatEGP(row.base_price_cash) + rentPeriodSuffix(row),
     installment_badge: row.payment.badge,
     title: row.title,
     location: row.location,

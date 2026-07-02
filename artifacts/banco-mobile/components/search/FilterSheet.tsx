@@ -25,7 +25,7 @@ import {
   EngineChips,
 } from "@/components/CategoryTabs";
 import { brandLabel, type CarBrand } from "@/constants/cars";
-import type { EngineDef } from "@/constants/engines";
+import { engineByKey, type EngineDef } from "@/constants/engines";
 import { INDUSTRY_TYPES, RENTAL_TERMS } from "@/constants/listingCreateTaxonomy";
 import { useI18n } from "@/context/LanguageContext";
 import { useColors } from "@/hooks/useColors";
@@ -150,6 +150,11 @@ export function FilterSheet({
   const isRealEstate = criteria.category === "real_estate";
   const isIndustrial = apiCategoryFor(criteria.category) === "industrial";
   const showEngines = engines.length > 1;
+  // Per-section content correctness: rental systems are rent-only — offering
+  // them while the تمليك (sale) chip is active would be contradictory noise.
+  const selectedEngine = engineByKey(criteria.category, criteria.engineKey);
+  const showRentalTerms =
+    isRealEstate && selectedEngine?.params.offer_type !== "sale";
 
   return (
     <Modal
@@ -425,8 +430,9 @@ export function FilterSheet({
             )}
 
             {/* Rental system (real estate) — furnished-daily / new-law / old-law /
-                annual contract, per the market's actual rental regimes. */}
-            {isRealEstate && (
+                annual contract, per the market's actual rental regimes. Hidden
+                while the sale (تمليك) engine chip is active (rent-only content). */}
+            {showRentalTerms && (
               <>
                 <SectionLabel text={t("create.fields.rentalTerm")} align={textAlign} colors={colors} />
                 <ToggleChipRow
