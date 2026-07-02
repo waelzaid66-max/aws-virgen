@@ -551,6 +551,15 @@ export const listings = pgTable(
     index("idx_listings_flagged").on(table.isFlagged),
     index("idx_listings_is_request").on(table.isRequest),
     index("idx_listings_saves").on(table.savesCount),
+    // GIN trigram indexes — accelerate the search engine's ILIKE '%term%' on
+    // title/description at catalog scale WITHOUT changing query semantics.
+    // Require pg_trgm (created by api-server bootstrap; also self-healed there
+    // via CREATE INDEX IF NOT EXISTS for environments that predate this schema).
+    index("idx_listings_title_trgm").using("gin", table.title.op("gin_trgm_ops")),
+    index("idx_listings_description_trgm").using(
+      "gin",
+      table.description.op("gin_trgm_ops"),
+    ),
     // Recency ordering uses COALESCE(bumped_at, created_at) DESC, id; this
     // composite covers the status-filtered sort prefix.
     index("idx_listings_recency").on(

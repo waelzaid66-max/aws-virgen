@@ -24,6 +24,7 @@ This is the live status of the BANCO Store monorepo (Banco Mobile · Banco Admin
 | **Server-side map clustering** | `GET /v1/search/map` → grid-clustered pins for a viewport, reusing the **exact** search filters. Scales (returns cells, not all pins). | DB test: zoom-out clusters, zoom-in pins, bbox gates, total conserved |
 | **Map UI wired to viewport clusters** | The Leaflet/WebView map now reports its viewport (debounced) → fetches `/search/map` with the SAME committed filters (`buildMapClusterParams` reuses `buildSearchParams`) → injects authoritative clusters (`window.BANCO_MAP.setClusters`), count bubbles drill in, off-page singles open by id, honest viewport-wide count, monotonic seq guard, graceful degradation to the loaded page on fetch failure. | Wired on Replit; code-reviewed + typecheck 0 locally; device QA on Replit |
 | **Messenger mini composer** | Quick-emoji strip collapsed behind a Messenger-style smiley toggle in the composer (primary-tinted while open) — thread keeps full height; reactions/reply/attach/preview untouched. | typecheck 0 |
+| **Search speed at scale (GIN trigram)** | `idx_listings_title_trgm` + `idx_listings_description_trgm` (gin_trgm_ops) accelerate the existing `ILIKE '%term%'` search — plan changes, semantics don't. Self-provisioning at boot (idempotent, CONCURRENTLY, non-fatal) + declared in the Drizzle schema for fresh environments. | DB test: indexes created idempotently + search results unchanged |
 | **Booking-style RENT map** | `offer_type=rent` on the map/search clusters **only rentals** — real-estate, land, factories. One shared filter path (`parsedFromSearchQuery` + `buildAttributeConditions`) → map & list always consistent. | DB test (rent vs sale) |
 | **Admin "control keys"** | Full plan management (price, quota, CPL ×4, boost, ranking, active/baseline) via `GET/POST/PATCH /admin/plans` (gated `manage_payments`) + **Plans & Pricing** page in Banco Admin. | service tests + admin-os typecheck |
 | **Observability** | Server: structured error reporting + optional alert webhook + process-level unhandled-error capture. Mobile: global JS + React render crash capture. | tests + wired |
@@ -65,7 +66,7 @@ The four markets (cars · real-estate incl. land · industrial/factories · B2B)
 
 1. ~~Wire the existing map UI to `/v1/search/map`~~ → **done** (Replit wiring, locally reviewed + typecheck-verified); remaining: device QA on Replit.
 2. Verify the Replit-env runtime blockers on device (uploads byte-path, OTP, Google/Apple sign-in, GPS, push, AI key).
-3. GIN/tsvector search index for large-catalog scale (additive, DB-testable).
+3. ~~GIN search index for large-catalog scale~~ → **done** (trigram indexes, boot-provisioned + schema-declared, DB-tested).
 4. Profile-completion polish + phone-permission flow review (account creation UX).
 5. Continued deploy/log hardening with real deploy runs.
 

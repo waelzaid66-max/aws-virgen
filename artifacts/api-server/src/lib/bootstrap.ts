@@ -24,4 +24,29 @@ export async function ensureDbExtensions(): Promise<void> {
       "ensureDbExtensions failed; continuing so the server still binds its port",
     );
   }
+  await ensureSearchIndexes();
+}
+
+/**
+ * Large-catalog search acceleration. GIN trigram indexes let the EXISTING
+ * `ILIKE '%term%'` predicates on title/description use an index scan instead of
+ * a sequential scan — the query text (and therefore result semantics/relevance)
+ * is completely unchanged; only the plan gets faster as the catalog grows.
+ *
+ * Idempotent (IF NOT EXISTS → no-op after first boot) and CONCURRENTLY so a boot
+ * on a large live table never blocks writers. Requires pg_trgm (created above);
+ * each statement is individually non-fatal for the same liveness reason.
+ */
+async function ensureSearchIndexes(): Promise<void> {
+  const statements = [
+    sql`CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_listings_title_trgm ON listings USING gin (title gin_trgm_ops)`,
+    sql`CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_listings_description_trgm ON listings USING gin (description gin_trgm_ops)`,
+  ];
+  for (const statement of statements) {
+    try {
+      await db.execute(statement);
+    } catch (err) {
+      logger.error({ err }, "ensureSearchIndexes: index creation failed; search stays correct (ILIKE) but unaccelerated");
+    }
+  }
 }
