@@ -382,7 +382,10 @@ export async function askBancoAssistant(
   for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
     const lastRound = round === MAX_TOOL_ROUNDS - 1;
     const completion = await openai.chat.completions.create({
-      model: "gpt-5.4",
+      // Default matches Replit's managed-AI catalog. When running on a direct
+      // OPENAI_API_KEY, set OPENAI_MODEL to a model your account actually has
+      // (e.g. gpt-5-mini / gpt-4o) — no code change needed.
+      model: process.env.OPENAI_MODEL ?? "gpt-5.4",
       max_completion_tokens: 8192,
       messages,
       // On the final allowed round, force a text answer so we never end on a tool call.
