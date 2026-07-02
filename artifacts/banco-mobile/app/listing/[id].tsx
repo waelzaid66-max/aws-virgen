@@ -638,6 +638,22 @@ export default function ListingDetailScreen() {
     );
   };
 
+  // Hospitality hand-off: hotel listings get a direct Google (Travel/Hotels)
+  // booking search prefilled with the property name + area — the rent section's
+  // door to bookable stays without building a booking engine.
+  const isHotel =
+    (listing.specs as Record<string, unknown> | undefined)?.property_type ===
+    "hotel";
+  const openGoogleBooking = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const q = encodeURIComponent(
+      `${listing.title} ${(listing.location ?? "").trim()}`.trim(),
+    );
+    Linking.openURL(`https://www.google.com/travel/search?q=${q}`).catch(
+      () => {},
+    );
+  };
+
   const SELLER_ROLE_KEYS = ["individual", "dealer", "company"];
   const sellerRoleRaw = listing.seller?.role?.toLowerCase() ?? "";
   const sellerRoleLabel = SELLER_ROLE_KEYS.includes(sellerRoleRaw)
@@ -983,6 +999,25 @@ export default function ListingDetailScreen() {
                 <Ionicons name="map-outline" size={13} color={colors.accent} />
                 <AppText style={[styles.mapsBtnText, { color: colors.accent }]}>
                   {t("listing.openInMaps")}
+                </AppText>
+              </Pressable>
+            ) : null}
+            {isHotel ? (
+              <Pressable
+                onPress={openGoogleBooking}
+                style={[
+                  styles.mapsBtn,
+                  {
+                    flexDirection: rowDir,
+                    borderColor: colors.border,
+                    backgroundColor: colors.secondary,
+                  },
+                ]}
+                testID="book-on-google"
+              >
+                <Ionicons name="bed-outline" size={13} color={colors.accent} />
+                <AppText style={[styles.mapsBtnText, { color: colors.accent }]}>
+                  {t("listing.bookOnGoogle")}
                 </AppText>
               </Pressable>
             ) : null}

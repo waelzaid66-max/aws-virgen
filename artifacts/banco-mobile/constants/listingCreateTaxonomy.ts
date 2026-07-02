@@ -92,6 +92,9 @@ export const PROPERTY_TYPES: { value: string; en: string; ar: string }[] = [
   { value: "duplex", en: "Duplex", ar: "دوبلكس" },
   { value: "studio", en: "Studio", ar: "استوديو" },
   { value: "chalet", en: "Chalet", ar: "شاليه" },
+  // Hospitality inside the rent world: a hotel listing gets a direct Google
+  // (Travel/Hotels) booking hand-off on its detail page.
+  { value: "hotel", en: "Hotel", ar: "فندق" },
   { value: "office", en: "Office", ar: "مكتب" },
   { value: "clinic", en: "Clinic", ar: "عيادة" },
   { value: "shop", en: "Shop", ar: "محل" },

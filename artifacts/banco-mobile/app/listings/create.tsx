@@ -129,7 +129,9 @@ const emptyPlan = (): PlanDraft => ({
 
 // Guided wizard steps. Raw Materials is a 4th seller-facing category that maps
 // to category=industrial + industrial_type="raw_material" at submit/preview.
-const STEP_KEYS = ["category", "details", "media", "price", "preview"] as const;
+// Photos + pricing share one page (fewer pages, faster publish — the media and
+// price blocks are short and belong to the same "make it sellable" moment).
+const STEP_KEYS = ["category", "details", "media", "preview"] as const;
 const TOTAL_STEPS = STEP_KEYS.length;
 
 const MAX_PHONES = 5;
@@ -309,7 +311,9 @@ export default function CreateListingScreen() {
       try {
         const d = parseListingDraft(await AsyncStorage.getItem(LISTING_DRAFT_KEY));
         if (cancelled || !d) return;
-        setStep(d.step);
+        // Clamp: drafts saved before the photos+pricing merge may point past
+        // the (now shorter) step list.
+        setStep(Math.min(d.step, TOTAL_STEPS - 1));
         if (d.category) setCategory(d.category as UiListingCategory);
         setTitle(d.title);
         setDescription(d.description);
@@ -823,7 +827,8 @@ export default function CreateListingScreen() {
       return null;
     }
     if (s === 2) {
-      // Photos are optional for buyer requests — they're looking, not selling.
+      // Photos + pricing live on one page. Requests skip both (they're looking,
+      // not selling — no photo floor, no price).
       if (isRequest) return null;
       // Min applies to IMAGES only — videos are additive and never count toward
       // the photo floor (and can never be the card thumbnail).
@@ -831,11 +836,6 @@ export default function CreateListingScreen() {
       if (imageCount < MIN_PHOTOS) {
         return t("create.errMinPhotos", { count: MIN_PHOTOS });
       }
-      return null;
-    }
-    if (s === 3) {
-      // Requests have no price and no payment plans — nothing to validate here.
-      if (isRequest) return null;
       const price = digitsToNumber(cashPrice);
       if (!price || price <= 0) return t("create.errPrice");
       for (const plan of plans) {
@@ -847,7 +847,7 @@ export default function CreateListingScreen() {
       }
       return null;
     }
-    if (s === 4) {
+    if (s === 3) {
       if (freeRemaining === 0) return t("create.errQuota");
       return null;
     }
@@ -2509,10 +2509,14 @@ export default function CreateListingScreen() {
       case 1:
         return renderDetails();
       case 2:
-        return renderMedia();
+        // One page: photos then pricing — the "make it sellable" moment.
+        return (
+          <>
+            {renderMedia()}
+            {renderPrice()}
+          </>
+        );
       case 3:
-        return renderPrice();
-      case 4:
         return renderPreview();
       default:
         return null;

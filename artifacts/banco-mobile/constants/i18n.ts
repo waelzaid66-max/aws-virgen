@@ -512,6 +512,7 @@ const en = {
     contactUnavailable: "Contact details unavailable for this seller.",
     report: "Report listing",
     openInMaps: "Open in Maps",
+    bookOnGoogle: "Book on Google",
     bestOffer: "Best offer",
     verifiedSeller: "Verified seller",
     comments: {
@@ -875,7 +876,7 @@ const en = {
     steps: {
       category: "Category",
       details: "Details",
-      media: "Photos",
+      media: "Photos & pricing",
       price: "Pricing",
       preview: "Preview & publish",
     },
@@ -2189,6 +2190,7 @@ const ar: typeof en = {
     contactUnavailable: "مفيش بيانات تواصل للبائع ده.",
     report: "إبلاغ عن الإعلان",
     openInMaps: "افتح في الخرائط",
+    bookOnGoogle: "احجز عبر Google",
     bestOffer: "أفضل عرض",
     verifiedSeller: "بائع موثّق",
     comments: {
@@ -2550,7 +2552,7 @@ const ar: typeof en = {
     steps: {
       category: "الفئة",
       details: "التفاصيل",
-      media: "الصور",
+      media: "الصور والتسعير",
       price: "التسعير",
       preview: "المعاينة والنشر",
     },
