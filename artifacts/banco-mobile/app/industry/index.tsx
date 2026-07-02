@@ -33,17 +33,19 @@ export default function IndustryHubScreen() {
   const rowDir = isRTL ? "row-reverse" : "row";
 
   const [type, setType] = useState<IndustrialType>("all");
-  // Fetch the whole industrial feed and filter by sub-type on the client so
-  // every type (including raw_material, which the API param omits) is browsable.
+  // Origin dimension (الاستيراد): local vs imported — the supply section's core
+  // split, filtered server-side like everything else.
+  const [origin, setOrigin] = useState<"all" | "local" | "imported">("all");
+  // Sub-type + origin are pushed to the SERVER (the feed supports both params),
+  // so browsing is complete — no client-side filtering over a single page that
+  // silently hides matches beyond the first fetch.
   const { data, isLoading, isError, refetch, isRefetching } = useGetFeed({
     category: "industrial",
     limit: 60,
+    ...(type !== "all" ? { industrial_type: type } : {}),
+    ...(origin !== "all" ? { origin_type: origin } : {}),
   });
-  const rawItems: FeedItem[] = data?.data ?? [];
-  const items: FeedItem[] =
-    type === "all"
-      ? rawItems
-      : rawItems.filter((it) => it.industrial_type === type);
+  const items: FeedItem[] = data?.data ?? [];
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -88,6 +90,42 @@ export default function IndustryHubScreen() {
         selected={type}
         onChange={setType}
       />
+
+      {/* Origin (الاستيراد): all / local / imported — the import dimension
+          inside the section, same server filter search and the map use. */}
+      <View style={[styles.originRow, { flexDirection: rowDir }]}>
+        {(["all", "local", "imported"] as const).map((o) => {
+          const active = origin === o;
+          return (
+            <Pressable
+              key={o}
+              onPress={() => setOrigin(o)}
+              style={[
+                styles.originChip,
+                {
+                  backgroundColor: active ? colors.primary : colors.secondary,
+                },
+              ]}
+              testID={`industry-origin-${o}`}
+            >
+              <AppText
+                style={[
+                  styles.originChipText,
+                  {
+                    color: active
+                      ? colors.primaryForeground
+                      : colors.mutedForeground,
+                  },
+                ]}
+              >
+                {o === "all"
+                  ? t("search.any")
+                  : t(`create.opts.${o}`)}
+              </AppText>
+            </Pressable>
+          );
+        })}
+      </View>
 
       {isLoading ? (
         <View style={styles.centered}>
@@ -188,4 +226,18 @@ const styles = StyleSheet.create({
   },
   retryText: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
   list: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 120 },
+  originRow: {
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+  },
+  originChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 18,
+  },
+  originChipText: {
+    fontSize: 13,
+    fontFamily: "Inter_500Medium",
+  },
 });
