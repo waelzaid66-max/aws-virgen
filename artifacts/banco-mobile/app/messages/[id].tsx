@@ -87,6 +87,9 @@ export default function ThreadScreen() {
   const canMarkSold = params.role === "seller" && !!params.listingId;
 
   const [draft, setDraft] = useState("");
+  // Messenger-style: the quick-emoji strip is collapsed behind a smiley toggle
+  // in the composer, so the thread keeps its full height while typing.
+  const [emojiOpen, setEmojiOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [soldDone, setSoldDone] = useState(false);
   const [pending, setPending] = useState<PendingMessage[]>([]);
@@ -684,30 +687,32 @@ export default function ThreadScreen() {
           />
         )}
 
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          keyboardShouldPersistTaps="always"
-          contentContainerStyle={[
-            styles.emojiBar,
-            { flexDirection: isRTL ? "row-reverse" : "row" },
-          ]}
-          style={{ backgroundColor: colors.background }}
-        >
-          {QUICK_EMOJIS.map((e) => (
-            <Pressable
-              key={e}
-              onPress={() => {
-                Haptics.selectionAsync();
-                setDraft((d) => d + e);
-              }}
-              style={styles.emojiBtn}
-              testID={`emoji-${e}`}
-            >
-              <AppText style={styles.emojiText}>{e}</AppText>
-            </Pressable>
-          ))}
-        </ScrollView>
+        {emojiOpen ? (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            keyboardShouldPersistTaps="always"
+            contentContainerStyle={[
+              styles.emojiBar,
+              { flexDirection: isRTL ? "row-reverse" : "row" },
+            ]}
+            style={{ backgroundColor: colors.background }}
+          >
+            {QUICK_EMOJIS.map((e) => (
+              <Pressable
+                key={e}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  setDraft((d) => d + e);
+                }}
+                style={styles.emojiBtn}
+                testID={`emoji-${e}`}
+              >
+                <AppText style={styles.emojiText}>{e}</AppText>
+              </Pressable>
+            ))}
+          </ScrollView>
+        ) : null}
 
         {replyTo ? (
           <View
@@ -746,6 +751,26 @@ export default function ThreadScreen() {
             },
           ]}
         >
+          <Pressable
+            onPress={() => {
+              Haptics.selectionAsync();
+              setEmojiOpen((v) => !v);
+            }}
+            style={[
+              styles.attachBtn,
+              {
+                backgroundColor: colors.card,
+                borderColor: emojiOpen ? colors.primary : colors.border,
+              },
+            ]}
+            testID="message-emoji-toggle"
+          >
+            <Feather
+              name="smile"
+              size={20}
+              color={emojiOpen ? colors.primary : colors.mutedForeground}
+            />
+          </Pressable>
           {params.listingId ? (
             <Pressable
               onPress={shareListing}
