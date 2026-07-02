@@ -1096,11 +1096,13 @@ export default function ProfileScreen() {
                   textAlign: isRTL ? "right" : "left",
                 },
               ]}
-              numberOfLines={2}
+              numberOfLines={3}
             >
               {bio || t("profile.bioEmpty")}
             </AppText>
           </Pressable>
+          {/* numberOfLines above: 3 lines reads like Instagram without pushing
+              the trust row off-screen; tap opens the editor either way. */}
 
           {meQuery.data?.data?.account_number && (
             <AppText
@@ -1798,6 +1800,7 @@ export default function ProfileScreen() {
                     styles.editInput,
                     {
                       color: colors.foreground,
+                      backgroundColor: colors.secondary,
                       borderColor: colors.border,
                       borderRadius: colors.radius,
                       textAlign: isRTL ? "right" : "left",
@@ -1805,6 +1808,17 @@ export default function ProfileScreen() {
                   ]}
                   testID="edit-display-title"
                 />
+                <AppText
+                  style={[
+                    styles.editCounter,
+                    {
+                      color: colors.mutedForeground,
+                      alignSelf: isRTL ? "flex-start" : "flex-end",
+                    },
+                  ]}
+                >
+                  {displayTitleDraft.length}/60
+                </AppText>
               </View>
 
               <View style={styles.editField}>
@@ -1829,6 +1843,7 @@ export default function ProfileScreen() {
                     styles.editInput,
                     {
                       color: colors.foreground,
+                      backgroundColor: colors.secondary,
                       borderColor: colors.border,
                       borderRadius: colors.radius,
                       textAlign: isRTL ? "right" : "left",
@@ -1863,6 +1878,7 @@ export default function ProfileScreen() {
                     styles.editInputMultiline,
                     {
                       color: colors.foreground,
+                      backgroundColor: colors.secondary,
                       borderColor: colors.border,
                       borderRadius: colors.radius,
                       textAlign: isRTL ? "right" : "left",
@@ -1870,6 +1886,17 @@ export default function ProfileScreen() {
                   ]}
                   testID="edit-bio"
                 />
+                <AppText
+                  style={[
+                    styles.editCounter,
+                    {
+                      color: colors.mutedForeground,
+                      alignSelf: isRTL ? "flex-start" : "flex-end",
+                    },
+                  ]}
+                >
+                  {bioDraft.length}/160
+                </AppText>
               </View>
 
               <Pressable
@@ -3517,6 +3544,11 @@ const styles = StyleSheet.create({
   editInputMultiline: {
     minHeight: 72,
     textAlignVertical: "top",
+  },
+  editCounter: {
+    fontSize: 11,
+    fontFamily: "Inter_400Regular",
+    marginTop: 4,
   },
 
   // Overflow menu

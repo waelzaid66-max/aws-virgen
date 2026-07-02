@@ -178,8 +178,22 @@ export default function CompanyProfileScreen() {
             )}
           </View>
           <AppText style={[styles.role, { color: colors.mutedForeground }]}>
-            {profile.role}
+            {["individual", "dealer", "company"].includes(profile.role)
+              ? t(`listing.roles.${profile.role}`)
+              : profile.role}
           </AppText>
+          {/* LinkedIn-style headline: what they do · where they are (only when
+              the company actually filled those in — never fabricated). */}
+          {profile.company?.industry || profile.company?.hq_country ? (
+            <AppText
+              style={[styles.headline, { color: colors.foreground }]}
+              numberOfLines={1}
+            >
+              {[profile.company?.industry, profile.company?.hq_country]
+                .filter(Boolean)
+                .join(" · ")}
+            </AppText>
+          ) : null}
         </View>
 
         <Pressable
@@ -447,6 +461,11 @@ const styles = StyleSheet.create({
   nameRow: { alignItems: "center", gap: 7, marginTop: 4 },
   name: { fontSize: 19, fontFamily: "Inter_700Bold", textAlign: "center" },
   role: { fontSize: 13.5, fontFamily: "Inter_400Regular" },
+  headline: {
+    fontSize: 13.5,
+    fontFamily: "Inter_600SemiBold",
+    marginTop: 3,
+  },
   followBtn: {
     flexDirection: "row",
     alignItems: "center",
