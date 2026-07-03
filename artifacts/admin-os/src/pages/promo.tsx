@@ -44,6 +44,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
+import { useLang } from "@/context/LanguageContext";
 
 interface FormState {
   enabled: boolean;
@@ -61,19 +62,21 @@ function seedForm(view: PromoCampaignView): FormState {
   };
 }
 
+// Labels resolve through i18n at render time (labelKey → t()).
 const STATUS_META: Record<
   PromoCampaignView["status"],
-  { label: string; variant: "default" | "secondary" | "destructive" }
+  { labelKey: string; variant: "default" | "secondary" | "destructive" }
 > = {
-  active: { label: "Active", variant: "default" },
-  upcoming: { label: "Upcoming", variant: "secondary" },
-  ended: { label: "Ended", variant: "secondary" },
-  disabled: { label: "Disabled", variant: "destructive" },
+  active: { labelKey: "promoPage.statusActive", variant: "default" },
+  upcoming: { labelKey: "promoPage.statusUpcoming", variant: "secondary" },
+  ended: { labelKey: "promoPage.statusEnded", variant: "secondary" },
+  disabled: { labelKey: "promoPage.statusDisabled", variant: "destructive" },
 };
 
 export default function PromoPage() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { t } = useLang();
   const { data: resp, isLoading } = useGetPromoCampaign();
   const view = resp?.data;
 
@@ -123,11 +126,11 @@ export default function PromoPage() {
         onSuccess: () => {
           invalidate();
           toast({
-            title: "Promo campaign saved",
-            description: "Changes apply to the next monthly grant cycle.",
+            title: t("promoPage.toastSaved"),
+            description: t("promoPage.toastSavedDesc"),
           });
         },
-        onError: () => toast({ title: "Save failed", variant: "destructive" }),
+        onError: () => toast({ title: t("promoPage.toastSaveFailed"), variant: "destructive" }),
       }
     );
   };
@@ -141,12 +144,11 @@ export default function PromoPage() {
         onSuccess: () => {
           invalidate();
           toast({
-            title: "New campaign cycle started",
-            description:
-              "Every user becomes eligible for a fresh grant this month.",
+            title: t("promoPage.toastRenewed"),
+            description: t("promoPage.toastRenewedDesc"),
           });
         },
-        onError: () => toast({ title: "Renew failed", variant: "destructive" }),
+        onError: () => toast({ title: t("promoPage.toastRenewFailed"), variant: "destructive" }),
       }
     );
   };
@@ -164,19 +166,15 @@ export default function PromoPage() {
           <Gift className="w-6 h-6 text-primary" />
         </div>
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Free Ad Credit</h1>
-          <p className="text-muted-foreground mt-1">
-            A separate, virtual ad-only allowance granted to every user each
-            month. It is consumed before the real wallet on boosts and is
-            use-it-or-lose-it — it is never real money and cannot be withdrawn.
-          </p>
+          <h1 className="text-3xl font-bold tracking-tight">{t("promoPage.title")}</h1>
+          <p className="text-muted-foreground mt-1">{t("promoPage.subtitle")}</p>
         </div>
       </div>
 
       {/* Status summary */}
       <Card className="mb-6">
         <CardContent className="pt-6 flex flex-wrap items-center gap-x-8 gap-y-3">
-          <StatusItem label="Status">
+          <StatusItem label={t("promoPage.statStatus")}>
             <Badge
               variant={statusMeta.variant}
               className={
@@ -186,35 +184,35 @@ export default function PromoPage() {
               }
             >
               {view.status === "active" ? (
-                <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
+                <CheckCircle2 className="w-3.5 h-3.5 me-1" />
               ) : view.status === "disabled" ? (
-                <XCircle className="w-3.5 h-3.5 mr-1" />
+                <XCircle className="w-3.5 h-3.5 me-1" />
               ) : (
-                <CalendarClock className="w-3.5 h-3.5 mr-1" />
+                <CalendarClock className="w-3.5 h-3.5 me-1" />
               )}
-              {statusMeta.label}
+              {t(statusMeta.labelKey)}
             </Badge>
           </StatusItem>
-          <StatusItem label="Campaign version">
+          <StatusItem label={t("promoPage.statVersion")}>
             <span className="text-sm font-medium">#{view.campaign_version}</span>
           </StatusItem>
-          <StatusItem label="Month">
+          <StatusItem label={t("promoPage.statMonth")}>
             <span className="text-sm font-medium">
               {view.current_month_index < 0
-                ? "Not started"
-                : `${view.current_month_index + 1} of ${view.duration_months}`}
+                ? t("promoPage.notStarted")
+                : `${view.current_month_index + 1} ${t("promoPage.of")} ${view.duration_months}`}
             </span>
           </StatusItem>
-          <StatusItem label="Months remaining">
+          <StatusItem label={t("promoPage.statMonthsRemaining")}>
             <span className="text-sm font-medium">{view.months_remaining}</span>
           </StatusItem>
-          <StatusItem label="Started">
+          <StatusItem label={t("promoPage.statStarted")}>
             <span className="text-sm text-muted-foreground">
               {new Date(view.starts_at).toLocaleDateString()}
             </span>
           </StatusItem>
           {view.updated_at ? (
-            <StatusItem label="Last updated">
+            <StatusItem label={t("promoPage.statUpdated")}>
               <span className="text-sm text-muted-foreground">
                 {new Date(view.updated_at).toLocaleString()}
               </span>
@@ -226,22 +224,16 @@ export default function PromoPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Gift className="w-5 h-5 text-primary" /> Campaign configuration
+            <Gift className="w-5 h-5 text-primary" /> {t("promoPage.configTitle")}
           </CardTitle>
-          <CardDescription>
-            Set the monthly allowance per verification tier and how many months
-            the campaign runs. Edits take effect on the next grant cycle.
-          </CardDescription>
+          <CardDescription>{t("promoPage.configDesc")}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Enable */}
           <div className="flex items-center justify-between rounded-lg border p-4">
             <div>
-              <Label className="text-base">Enable monthly grants</Label>
-              <p className="text-sm text-muted-foreground mt-0.5">
-                When off, no new free ad credit is granted. Existing balances
-                still apply until they expire.
-              </p>
+              <Label className="text-base">{t("promoPage.enableTitle")}</Label>
+              <p className="text-sm text-muted-foreground mt-0.5">{t("promoPage.enableDesc")}</p>
             </div>
             <Switch
               checked={form.enabled}
@@ -253,8 +245,7 @@ export default function PromoPage() {
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="grid gap-2">
               <Label htmlFor="verifiedAmount" className="flex items-center gap-1.5">
-                <BadgeCheck className="w-4 h-4 text-primary" /> Verified users
-                (EGP / month)
+                <BadgeCheck className="w-4 h-4 text-primary" /> {t("promoPage.verifiedLabel")}
               </Label>
               <Input
                 id="verifiedAmount"
@@ -269,8 +260,7 @@ export default function PromoPage() {
                 htmlFor="unverifiedAmount"
                 className="flex items-center gap-1.5"
               >
-                <ShieldOff className="w-4 h-4 text-muted-foreground" /> Unverified
-                users (EGP / month)
+                <ShieldOff className="w-4 h-4 text-muted-foreground" /> {t("promoPage.unverifiedLabel")}
               </Label>
               <Input
                 id="unverifiedAmount"
@@ -283,7 +273,7 @@ export default function PromoPage() {
           </div>
 
           <div className="grid gap-2">
-            <Label htmlFor="durationMonths">Duration (months)</Label>
+            <Label htmlFor="durationMonths">{t("promoPage.durationLabel")}</Label>
             <Input
               id="durationMonths"
               type="number"
@@ -294,9 +284,9 @@ export default function PromoPage() {
               placeholder="4"
             />
             <p className="text-xs text-muted-foreground">
-              How many monthly grants this campaign runs for (1–24). Current
-              tiers: verified {fmtAmount(view.verified_monthly_amount)} EGP,
-              unverified {fmtAmount(view.unverified_monthly_amount)} EGP.
+              {t("promoPage.durationHint")} {t("promoPage.currentTiers")}{" "}
+              {fmtAmount(view.verified_monthly_amount)} EGP ·{" "}
+              {fmtAmount(view.unverified_monthly_amount)} EGP.
             </p>
           </div>
 
@@ -305,44 +295,35 @@ export default function PromoPage() {
               {update.isPending ? (
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
               ) : null}
-              Save configuration
+              {t("promoPage.saveBtn")}
             </Button>
 
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="outline" disabled={renew.isPending}>
                   {renew.isPending ? (
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    <Loader2 className="w-4 h-4 me-2 animate-spin" />
                   ) : (
-                    <RefreshCw className="w-4 h-4 mr-2" />
+                    <RefreshCw className="w-4 h-4 me-2" />
                   )}
-                  Start new cycle
+                  {t("promoPage.renewBtn")}
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>Start a fresh campaign cycle?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This begins a brand-new campaign from today using the values
-                    above. Every user becomes eligible for a new monthly grant,
-                    and the month counter resets to 1. Existing unused balances
-                    remain until their own expiry. This cannot be undone.
-                  </AlertDialogDescription>
+                  <AlertDialogTitle>{t("promoPage.dialogTitle")}</AlertDialogTitle>
+                  <AlertDialogDescription>{t("promoPage.dialogDesc")}</AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
                   <AlertDialogAction onClick={handleRenew}>
-                    Start new cycle
+                    {t("promoPage.renewBtn")}
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
           </div>
-          <p className="text-xs text-muted-foreground">
-            Grants run automatically once a day (Africa/Cairo). Saving only
-            changes future grants; use “Start new cycle” to relaunch the program
-            immediately.
-          </p>
+          <p className="text-xs text-muted-foreground">{t("promoPage.footnote")}</p>
         </CardContent>
       </Card>
     </div>
