@@ -37,6 +37,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
+import { useLang } from "@/context/LanguageContext";
 
 const STATUSES = ["new", "forwarded", "contacted", "closed", "rejected"] as const;
 type Status = (typeof STATUSES)[number];
@@ -68,6 +69,7 @@ function fmtMoney(value: string | null | undefined): string {
 
 export default function FinancingPage() {
   const { toast } = useToast();
+  const { t } = useLang();
   const queryClient = useQueryClient();
 
   const [category, setCategory] = useState<string>("all");
@@ -144,9 +146,9 @@ export default function FinancingPage() {
     try {
       await updateRequest.mutateAsync({ leadId, data: body });
       await refetchRequests();
-      toast({ title: "Updated", description: "Finance request saved." });
+      toast({ title: t("financingPage.toastUpdated"), description: t("financingPage.toastRequestSaved") });
     } catch {
-      toast({ title: "Update failed", description: "Could not save the change.", variant: "destructive" });
+      toast({ title: t("financingPage.toastUpdateFailed"), description: t("financingPage.toastCouldNotSaveChange"), variant: "destructive" });
     }
   }
 
@@ -172,7 +174,7 @@ export default function FinancingPage() {
       a.remove();
       URL.revokeObjectURL(href);
     } catch {
-      toast({ title: "Export failed", description: "Could not export requests.", variant: "destructive" });
+      toast({ title: t("financingPage.toastExportFailed"), description: t("financingPage.toastCouldNotExport"), variant: "destructive" });
     } finally {
       setExporting(false);
     }
@@ -182,10 +184,8 @@ export default function FinancingPage() {
     <div className="p-8 max-w-7xl mx-auto">
       <div className="mb-8 flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Financing CRM</h1>
-          <p className="text-muted-foreground mt-2">
-            Bank-financing (installment) requests across cars, real estate and industrial listings.
-          </p>
+          <h1 className="text-3xl font-bold tracking-tight">{t("financingPage.title")}</h1>
+          <p className="text-muted-foreground mt-2">{t("financingPage.subtitle")}</p>
         </div>
         <div className="flex items-center gap-2">
           <IntermediariesDialog intermediaries={intermediaries} />
@@ -201,7 +201,7 @@ export default function FinancingPage() {
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
-            placeholder="Search buyer or listing…"
+            placeholder={t("financingPage.searchPh")}
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             onKeyDown={(e) => {
@@ -212,7 +212,7 @@ export default function FinancingPage() {
         </div>
         <Select value={category} onValueChange={setCategory}>
           <SelectTrigger className="w-[160px]">
-            <SelectValue placeholder="Category" />
+            <SelectValue placeholder={t("financingPage.category")} />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All categories</SelectItem>
@@ -223,7 +223,7 @@ export default function FinancingPage() {
         </Select>
         <Select value={status} onValueChange={setStatus}>
           <SelectTrigger className="w-[160px]">
-            <SelectValue placeholder="Status" />
+            <SelectValue placeholder={t("financingPage.status")} />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All statuses</SelectItem>
@@ -342,6 +342,7 @@ function RequestRow({
     body: { status?: Status; intermediary_id?: string | null; notes?: string | null },
   ) => void;
 }) {
+  const { t } = useLang();
   const leadId = req.lead_id ?? "";
   return (
     <TableRow>
@@ -390,7 +391,7 @@ function RequestRow({
           disabled={busy}
         >
           <SelectTrigger className="w-[170px] h-8">
-            <SelectValue placeholder="Unassigned" />
+            <SelectValue placeholder={t("financingPage.unassigned")} />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value={UNASSIGNED}>Unassigned</SelectItem>
@@ -413,6 +414,7 @@ function RequestRow({
 }
 
 function NotesDialog({ req, onSave }: { req: FinancingRequest; onSave: (notes: string) => void }) {
+  const { t } = useLang();
   const [open, setOpen] = useState(false);
   const [value, setValue] = useState(req.notes ?? "");
 
@@ -439,7 +441,7 @@ function NotesDialog({ req, onSave }: { req: FinancingRequest; onSave: (notes: s
           value={value}
           onChange={(e) => setValue(e.target.value)}
           rows={5}
-          placeholder="Internal notes about this request…"
+          placeholder={t("financingPage.notesPh")}
         />
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
@@ -459,6 +461,7 @@ function NotesDialog({ req, onSave }: { req: FinancingRequest; onSave: (notes: s
 
 function IntermediariesDialog({ intermediaries }: { intermediaries: FinancingIntermediary[] }) {
   const { toast } = useToast();
+  const { t } = useLang();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<FinancingIntermediary | null>(null);
@@ -495,7 +498,7 @@ function IntermediariesDialog({ intermediaries }: { intermediaries: FinancingInt
 
   async function handleSave() {
     if (!name.trim()) {
-      toast({ title: "Name required", variant: "destructive" });
+      toast({ title: t("financingPage.toastNameRequired"), variant: "destructive" });
       return;
     }
     try {
@@ -521,10 +524,10 @@ function IntermediariesDialog({ intermediaries }: { intermediaries: FinancingInt
         });
       }
       await refetch();
-      toast({ title: "Saved", description: "Intermediary saved." });
+      toast({ title: t("financingPage.toastSaved"), description: t("financingPage.toastIntermediarySaved") });
       resetForm();
     } catch {
-      toast({ title: "Save failed", description: "Could not save intermediary.", variant: "destructive" });
+      toast({ title: t("financingPage.toastSaveFailed"), description: t("financingPage.toastCouldNotSaveIntermediary"), variant: "destructive" });
     }
   }
 
@@ -604,7 +607,7 @@ function IntermediariesDialog({ intermediaries }: { intermediaries: FinancingInt
 
         <DialogFooter>
           {editing && (
-            <Button variant="ghost" onClick={resetForm} disabled={busy}>Cancel edit</Button>
+            <Button variant="ghost" onClick={resetForm} disabled={busy}>{t("financingPage.cancelEdit")}</Button>
           )}
           <Button onClick={handleSave} disabled={busy}>
             {busy && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}

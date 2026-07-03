@@ -41,8 +41,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { useLang } from "@/context/LanguageContext";
 
 export default function SettingsPage() {
+  const { t } = useLang();
   return (
     <div className="p-8 max-w-3xl mx-auto space-y-12">
       <div className="flex items-start gap-3">
@@ -50,11 +52,8 @@ export default function SettingsPage() {
           <SettingsIcon className="w-6 h-6 text-primary" />
         </div>
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">System Settings</h1>
-          <p className="text-muted-foreground mt-1">
-            Manage the key integration values that power the whole platform.
-            Secrets are encrypted at rest and never displayed back.
-          </p>
+          <h1 className="text-3xl font-bold tracking-tight">{t("settingsPage.title")}</h1>
+          <p className="text-muted-foreground mt-1">{t("settingsPage.subtitle")}</p>
         </div>
       </div>
 
@@ -143,6 +142,7 @@ function seedPaymentForm(view: PaymentConfigView): PaymentFormState {
 }
 
 function PaymentSection() {
+  const { t } = useLang();
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { data: resp, isLoading } = useGetPaymentConfig();
@@ -204,11 +204,11 @@ function PaymentSection() {
           });
           setTestResult(null);
           toast({
-            title: "Payment configuration saved",
+            title: t("settingsPage.toastPaymentSaved"),
             description: "Credentials are encrypted at rest.",
           });
         },
-        onError: () => toast({ title: "Save failed", variant: "destructive" }),
+        onError: () => toast({ title: t("settingsPage.toastSaveFailed"), variant: "destructive" }),
       },
     );
   };
@@ -228,7 +228,7 @@ function PaymentSection() {
         }
       },
       onError: () =>
-        toast({ title: "Test request failed", variant: "destructive" }),
+        toast({ title: t("settingsPage.toastTestFailed"), variant: "destructive" }),
     });
   };
 
@@ -277,19 +277,16 @@ function PaymentSection() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <ShieldCheck className="w-5 h-5 text-primary" /> Credentials
+            <ShieldCheck className="w-5 h-5 text-primary" /> {t("settingsPage.credentials")}
           </CardTitle>
-          <CardDescription>
-            Switch between sandbox and live, rotate keys, and enable the
-            database-managed configuration.
-          </CardDescription>
+          <CardDescription>{t("settingsPage.credentialsDesc")}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="flex items-center justify-between rounded-lg border p-4">
             <div>
-              <Label className="text-base">Use database configuration</Label>
+              <Label className="text-base">{t("settingsPage.useDbConfig")}</Label>
               <p className="text-sm text-muted-foreground mt-0.5">
-                When off, the gateway falls back to environment secrets.
+                {t("settingsPage.paymentDbHint")}
               </p>
             </div>
             <Switch
@@ -440,6 +437,7 @@ function seedEmailForm(view: EmailConfigView): EmailFormState {
 }
 
 function EmailSection() {
+  const { t } = useLang();
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { data: resp, isLoading } = useGetEmailConfig();
@@ -501,11 +499,11 @@ function EmailSection() {
           });
           setTestResult(null);
           toast({
-            title: "Email configuration saved",
+            title: t("settingsPage.toastEmailSaved"),
             description: "The API key is encrypted at rest.",
           });
         },
-        onError: () => toast({ title: "Save failed", variant: "destructive" }),
+        onError: () => toast({ title: t("settingsPage.toastSaveFailed"), variant: "destructive" }),
       },
     );
   };
@@ -525,7 +523,7 @@ function EmailSection() {
         }
       },
       onError: () =>
-        toast({ title: "Test request failed", variant: "destructive" }),
+        toast({ title: t("settingsPage.toastTestFailed"), variant: "destructive" }),
     });
   };
 
@@ -576,19 +574,16 @@ function EmailSection() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Send className="w-5 h-5 text-primary" /> Sender &amp; provider
+            <Send className="w-5 h-5 text-primary" /> {t("settingsPage.senderProvider")}
           </CardTitle>
-          <CardDescription>
-            Set the sender identity and the Resend API key. The sending domain
-            must be verified in your Resend account.
-          </CardDescription>
+          <CardDescription>{t("settingsPage.senderProviderDesc")}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="flex items-center justify-between rounded-lg border p-4">
             <div>
-              <Label className="text-base">Use database configuration</Label>
+              <Label className="text-base">{t("settingsPage.useDbConfig")}</Label>
               <p className="text-sm text-muted-foreground mt-0.5">
-                When off, email falls back to environment secrets.
+                {t("settingsPage.emailDbHint")}
               </p>
             </div>
             <Switch
