@@ -2,27 +2,29 @@ import { useGetAdminLeads } from "@workspace/api-client-react";
 import { Loader2 } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { useLang } from "@/context/LanguageContext";
 
 export default function LeadsPage() {
+  const { t } = useLang();
   const { data: resp, isLoading } = useGetAdminLeads();
   const leads = resp?.data ?? [];
 
   return (
     <div className="p-8 max-w-6xl mx-auto">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tight">Leads</h1>
-        <p className="text-muted-foreground mt-2">Buyer interactions across all listings.</p>
+        <h1 className="text-3xl font-bold tracking-tight">{t("leadsPage.title")}</h1>
+        <p className="text-muted-foreground mt-2">{t("leadsPage.subtitle")}</p>
       </div>
 
       <div className="border rounded-md bg-card">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Listing</TableHead>
-              <TableHead>Action</TableHead>
-              <TableHead>Buyer</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Date</TableHead>
+              <TableHead>{t("leadsPage.colListing")}</TableHead>
+              <TableHead>{t("leadsPage.colAction")}</TableHead>
+              <TableHead>{t("leadsPage.colBuyer")}</TableHead>
+              <TableHead>{t("leadsPage.colStatus")}</TableHead>
+              <TableHead>{t("leadsPage.colDate")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -35,7 +37,7 @@ export default function LeadsPage() {
             ) : !leads.length ? (
               <TableRow>
                 <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
-                  No leads.
+                  {t("leadsPage.empty")}
                 </TableCell>
               </TableRow>
             ) : (

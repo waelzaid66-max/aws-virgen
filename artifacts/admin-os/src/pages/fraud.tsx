@@ -3,6 +3,7 @@ import { Loader2, ShieldAlert, AlertTriangle, Info } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { useLang } from "@/context/LanguageContext";
 
 const SEVERITY = {
   critical: { variant: "destructive" as const, icon: ShieldAlert, ring: "border-destructive/40" },
@@ -11,14 +12,15 @@ const SEVERITY = {
 };
 
 export default function FraudPage() {
+  const { t } = useLang();
   const { data: resp, isLoading } = useGetFraudSignals();
   const signals = resp?.data ?? [];
 
   return (
     <div className="p-8 max-w-5xl mx-auto">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tight">Fraud Signals</h1>
-        <p className="text-muted-foreground mt-2">Heuristic detections of suspicious activity.</p>
+        <h1 className="text-3xl font-bold tracking-tight">{t("fraudPage.title")}</h1>
+        <p className="text-muted-foreground mt-2">{t("fraudPage.subtitle")}</p>
       </div>
 
       {isLoading ? (
@@ -27,7 +29,7 @@ export default function FraudPage() {
         </div>
       ) : !signals.length ? (
         <div className="border rounded-md bg-card py-16 text-center text-muted-foreground">
-          No fraud signals detected.
+          {t("fraudPage.empty")}
         </div>
       ) : (
         <div className="space-y-3">

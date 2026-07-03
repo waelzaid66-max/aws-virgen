@@ -2,28 +2,30 @@ import { useGetAdminAds } from "@workspace/api-client-react";
 import { Loader2 } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { useLang } from "@/context/LanguageContext";
 
 export default function AdsPage() {
+  const { t } = useLang();
   const { data: resp, isLoading } = useGetAdminAds();
   const ads = resp?.data ?? [];
 
   return (
     <div className="p-8 max-w-6xl mx-auto">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tight">Ad Campaigns</h1>
-        <p className="text-muted-foreground mt-2">Boosted and featured listing campaigns.</p>
+        <h1 className="text-3xl font-bold tracking-tight">{t("adsPage.title")}</h1>
+        <p className="text-muted-foreground mt-2">{t("adsPage.subtitle")}</p>
       </div>
 
       <div className="border rounded-md bg-card">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Listing</TableHead>
-              <TableHead>Seller</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Spent / Budget</TableHead>
-              <TableHead>Impressions</TableHead>
-              <TableHead>Status</TableHead>
+              <TableHead>{t("adsPage.colListing")}</TableHead>
+              <TableHead>{t("adsPage.colSeller")}</TableHead>
+              <TableHead>{t("adsPage.colType")}</TableHead>
+              <TableHead>{t("adsPage.colSpent")}</TableHead>
+              <TableHead>{t("adsPage.colImpressions")}</TableHead>
+              <TableHead>{t("adsPage.colStatus")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -36,7 +38,7 @@ export default function AdsPage() {
             ) : !ads.length ? (
               <TableRow>
                 <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
-                  No ad campaigns.
+                  {t("adsPage.empty")}
                 </TableCell>
               </TableRow>
             ) : (
@@ -54,7 +56,7 @@ export default function AdsPage() {
                   <TableCell>{(ad.impressions ?? 0).toLocaleString()}</TableCell>
                   <TableCell>
                     <Badge variant={ad.is_active ? "default" : "secondary"}>
-                      {ad.is_active ? "Active" : "Ended"}
+                      {ad.is_active ? t("adsPage.active") : t("adsPage.ended")}
                     </Badge>
                   </TableCell>
                 </TableRow>
