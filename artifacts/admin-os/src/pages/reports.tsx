@@ -6,6 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { useLang } from "@/context/LanguageContext";
 
 const STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
   open: "destructive",
@@ -17,6 +18,7 @@ const STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive" | "
 export default function ReportsPage() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { t } = useLang();
   const { data: resp, isLoading } = useGetAdminReports();
   const reports = resp?.data ?? [];
   const resolve = useResolveReport();
@@ -28,9 +30,9 @@ export default function ReportsPage() {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getGetAdminReportsQueryKey() });
           queryClient.invalidateQueries({ queryKey: getGetAdminOverviewQueryKey() });
-          toast({ title: "Report updated", description: `Marked ${status}` });
+          toast({ title: t("reportsPage.toastUpdated"), description: `${t("reportsPage.toastMarked")}: ${status}` });
         },
-        onError: () => toast({ title: "Action failed", variant: "destructive" }),
+        onError: () => toast({ title: t("reportsPage.actionFailed"), variant: "destructive" }),
       }
     );
   };
@@ -38,19 +40,19 @@ export default function ReportsPage() {
   return (
     <div className="p-8 max-w-6xl mx-auto">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tight">Reports</h1>
-        <p className="text-muted-foreground mt-2">User-submitted reports against listings.</p>
+        <h1 className="text-3xl font-bold tracking-tight">{t("reportsPage.title")}</h1>
+        <p className="text-muted-foreground mt-2">{t("reportsPage.subtitle")}</p>
       </div>
 
       <div className="border rounded-md bg-card">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Listing</TableHead>
-              <TableHead>Reason</TableHead>
-              <TableHead>Reporter</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              <TableHead>{t("reportsPage.colListing")}</TableHead>
+              <TableHead>{t("reportsPage.colReason")}</TableHead>
+              <TableHead>{t("reportsPage.colReporter")}</TableHead>
+              <TableHead>{t("reportsPage.colStatus")}</TableHead>
+              <TableHead className="text-end">{t("reportsPage.colActions")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -63,7 +65,7 @@ export default function ReportsPage() {
             ) : !reports.length ? (
               <TableRow>
                 <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
-                  No reports.
+                  {t("reportsPage.empty")}
                 </TableCell>
               </TableRow>
             ) : (
@@ -82,21 +84,21 @@ export default function ReportsPage() {
                   <TableCell>
                     <Badge variant={STATUS_VARIANT[r.status ?? "open"]}>{r.status}</Badge>
                   </TableCell>
-                  <TableCell className="text-right space-x-2 whitespace-nowrap">
+                  <TableCell className="text-end space-x-2 whitespace-nowrap">
                     {r.status === "open" || r.status === "reviewing" ? (
                       <>
                         <Button size="sm" variant="outline" disabled={resolve.isPending}
                           onClick={() => act(r.id!, "resolved")}>
-                          <Check className="w-4 h-4 mr-1" /> Resolve
+                          <Check className="w-4 h-4 me-1" /> {t("reportsPage.resolve")}
                         </Button>
                         <Button size="sm" variant="ghost" disabled={resolve.isPending}
                           onClick={() => act(r.id!, "dismissed")}>
-                          <X className="w-4 h-4 mr-1" /> Dismiss
+                          <X className="w-4 h-4 me-1" /> {t("reportsPage.dismiss")}
                         </Button>
                       </>
                     ) : (
                       <span className="text-xs text-muted-foreground">
-                        {r.resolution_note ?? "Closed"}
+                        {r.resolution_note ?? t("reportsPage.closed")}
                       </span>
                     )}
                   </TableCell>

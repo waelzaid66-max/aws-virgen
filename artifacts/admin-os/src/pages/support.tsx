@@ -15,10 +15,12 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { useLang } from "@/context/LanguageContext";
 
 export default function SupportPage() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { t } = useLang();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [reply, setReply] = useState("");
 
@@ -48,7 +50,7 @@ export default function SupportPage() {
           setReply("");
           invalidate();
         },
-        onError: () => toast({ title: "Failed to send", variant: "destructive" }),
+        onError: () => toast({ title: t("supportPage.failedSend"), variant: "destructive" }),
       }
     );
   };
@@ -60,9 +62,9 @@ export default function SupportPage() {
       {
         onSuccess: () => {
           invalidate();
-          toast({ title: status === "closed" ? "Ticket closed" : "Ticket reopened" });
+          toast({ title: status === "closed" ? t("supportPage.toastClosed") : t("supportPage.toastReopened") });
         },
-        onError: () => toast({ title: "Action failed", variant: "destructive" }),
+        onError: () => toast({ title: t("supportPage.actionFailed"), variant: "destructive" }),
       }
     );
   };
@@ -70,8 +72,8 @@ export default function SupportPage() {
   return (
     <div className="p-8 max-w-6xl mx-auto">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tight">Support Tickets</h1>
-        <p className="text-muted-foreground mt-2">Respond to and resolve user support requests.</p>
+        <h1 className="text-3xl font-bold tracking-tight">{t("supportPage.title")}</h1>
+        <p className="text-muted-foreground mt-2">{t("supportPage.subtitle")}</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-6">
@@ -83,27 +85,27 @@ export default function SupportPage() {
             </div>
           ) : !tickets.length ? (
             <div className="h-40 flex items-center justify-center text-muted-foreground text-sm">
-              No tickets.
+              {t("supportPage.empty")}
             </div>
           ) : (
             <div className="divide-y divide-border max-h-[70vh] overflow-y-auto">
-              {tickets.map((t: (typeof tickets)[number]) => (
+              {tickets.map((tk: (typeof tickets)[number]) => (
                 <button
-                  key={t.id}
-                  onClick={() => setSelectedId(t.id!)}
+                  key={tk.id}
+                  onClick={() => setSelectedId(tk.id!)}
                   className={cn(
-                    "w-full text-left p-4 hover:bg-muted/50 transition-colors",
-                    selectedId === t.id && "bg-muted"
+                    "w-full text-start p-4 hover:bg-muted/50 transition-colors",
+                    selectedId === tk.id && "bg-muted"
                   )}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="font-medium truncate">{t.subject}</span>
-                    <Badge variant={t.status === "open" ? "destructive" : "secondary"} className="shrink-0">
-                      {t.status}
+                    <span className="font-medium truncate">{tk.subject}</span>
+                    <Badge variant={tk.status === "open" ? "destructive" : "secondary"} className="shrink-0">
+                      {tk.status}
                     </Badge>
                   </div>
                   <div className="text-xs text-muted-foreground mt-1 truncate">
-                    {t.user_name ?? "Unknown"} · {t.message_count ?? 0} msgs
+                    {tk.user_name ?? t("supportPage.unknown")} · {tk.message_count ?? 0} {t("supportPage.msgs")}
                   </div>
                 </button>
               ))}
@@ -115,7 +117,7 @@ export default function SupportPage() {
         <div className="border rounded-md bg-card flex flex-col min-h-[400px]">
           {!selectedId ? (
             <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">
-              Select a ticket to view the conversation.
+              {t("supportPage.selectPrompt")}
             </div>
           ) : detailLoading ? (
             <div className="flex-1 flex items-center justify-center">
@@ -127,18 +129,18 @@ export default function SupportPage() {
                 <div>
                   <h2 className="font-semibold">{ticket.subject}</h2>
                   <p className="text-xs text-muted-foreground">
-                    {ticket.user_name ?? "Unknown"}{ticket.category ? ` · ${ticket.category}` : ""}
+                    {ticket.user_name ?? t("supportPage.unknown")}{ticket.category ? ` · ${ticket.category}` : ""}
                   </p>
                 </div>
                 {ticket.status === "open" ? (
                   <Button size="sm" variant="outline" disabled={resolve.isPending}
                     onClick={() => setStatus("closed")}>
-                    <CheckCircle2 className="w-4 h-4 mr-1" /> Close
+                    <CheckCircle2 className="w-4 h-4 me-1" /> {t("supportPage.close")}
                   </Button>
                 ) : (
                   <Button size="sm" variant="ghost" disabled={resolve.isPending}
                     onClick={() => setStatus("open")}>
-                    <RotateCcw className="w-4 h-4 mr-1" /> Reopen
+                    <RotateCcw className="w-4 h-4 me-1" /> {t("supportPage.reopen")}
                   </Button>
                 )}
               </div>
@@ -151,7 +153,7 @@ export default function SupportPage() {
                       m.is_admin ? "bg-primary text-primary-foreground" : "bg-muted"
                     )}>
                       <div className="text-[10px] opacity-70 mb-0.5">
-                        {m.is_admin ? "Support" : m.author_name ?? "User"}
+                        {m.is_admin ? t("supportPage.supportLabel") : m.author_name ?? t("supportPage.userLabel")}
                       </div>
                       {m.body}
                     </div>
@@ -161,7 +163,7 @@ export default function SupportPage() {
 
               <div className="p-4 border-t border-border flex gap-2">
                 <Textarea
-                  placeholder="Type a reply..."
+                  placeholder={t("supportPage.replyPh")}
                   value={reply}
                   rows={2}
                   onChange={(e) => setReply(e.target.value)}

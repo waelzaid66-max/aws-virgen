@@ -6,10 +6,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { useLang } from "@/context/LanguageContext";
 
 export default function ModerationPage() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { t } = useLang();
   const { data: resp, isLoading } = useGetModerationQueue();
   const items = resp?.data ?? [];
   const moderate = useModerateListing();
@@ -21,9 +23,9 @@ export default function ModerationPage() {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getGetModerationQueueQueryKey() });
           queryClient.invalidateQueries({ queryKey: getGetAdminOverviewQueryKey() });
-          toast({ title: "Listing moderated", description: `Action: ${action}` });
+          toast({ title: t("moderationPage.toastModerated"), description: `${t("moderationPage.actionLabel")}: ${action}` });
         },
-        onError: () => toast({ title: "Action failed", variant: "destructive" }),
+        onError: () => toast({ title: t("moderationPage.actionFailed"), variant: "destructive" }),
       }
     );
   };
@@ -31,19 +33,19 @@ export default function ModerationPage() {
   return (
     <div className="p-8 max-w-6xl mx-auto">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tight">Moderation Queue</h1>
-        <p className="text-muted-foreground mt-2">Listings awaiting review, flagged, or reported.</p>
+        <h1 className="text-3xl font-bold tracking-tight">{t("moderationPage.title")}</h1>
+        <p className="text-muted-foreground mt-2">{t("moderationPage.subtitle")}</p>
       </div>
 
       <div className="border rounded-md bg-card">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Listing</TableHead>
-              <TableHead>Seller</TableHead>
-              <TableHead>Reports</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              <TableHead>{t("moderationPage.colListing")}</TableHead>
+              <TableHead>{t("moderationPage.colSeller")}</TableHead>
+              <TableHead>{t("moderationPage.colReports")}</TableHead>
+              <TableHead>{t("moderationPage.colStatus")}</TableHead>
+              <TableHead className="text-end">{t("moderationPage.colActions")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -56,7 +58,7 @@ export default function ModerationPage() {
             ) : !items.length ? (
               <TableRow>
                 <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
-                  Queue is clear. Nothing to review.
+                  {t("moderationPage.empty")}
                 </TableCell>
               </TableRow>
             ) : (
@@ -71,7 +73,7 @@ export default function ModerationPage() {
                   <TableCell>
                     <div>{listing.seller_name}</div>
                     {listing.seller_shadow_banned ? (
-                      <Badge variant="destructive" className="mt-1">Banned seller</Badge>
+                      <Badge variant="destructive" className="mt-1">{t("moderationPage.bannedSeller")}</Badge>
                     ) : null}
                   </TableCell>
                   <TableCell>
@@ -86,18 +88,18 @@ export default function ModerationPage() {
                       {listing.status?.replace(/_/g, " ")}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-right space-x-2 whitespace-nowrap">
+                  <TableCell className="text-end space-x-2 whitespace-nowrap">
                     <Button size="sm" variant="outline" disabled={moderate.isPending}
                       onClick={() => act(listing.id!, "approve")}>
-                      <Check className="w-4 h-4 mr-1" /> Approve
+                      <Check className="w-4 h-4 me-1" /> {t("moderationPage.approve")}
                     </Button>
                     <Button size="sm" variant="destructive" disabled={moderate.isPending}
                       onClick={() => act(listing.id!, "reject")}>
-                      <X className="w-4 h-4 mr-1" /> Reject
+                      <X className="w-4 h-4 me-1" /> {t("moderationPage.reject")}
                     </Button>
                     <Button size="sm" variant="ghost" disabled={moderate.isPending}
                       onClick={() => act(listing.id!, listing.is_flagged ? "unflag" : "flag")}>
-                      <Flag className="w-4 h-4 mr-1" /> {listing.is_flagged ? "Unflag" : "Flag"}
+                      <Flag className="w-4 h-4 me-1" /> {listing.is_flagged ? t("moderationPage.unflag") : t("moderationPage.flag")}
                     </Button>
                   </TableCell>
                 </TableRow>
