@@ -14,6 +14,7 @@
 import { db } from "@workspace/db";
 import { referenceDevelopers, referencePlaces } from "@workspace/db/schema";
 import { EGYPT_DEVELOPERS, EGYPT_TREE, type DevSeed, type PlaceSeed } from "./reference/egypt";
+import { MIDDLE_EAST_DEVELOPERS, MIDDLE_EAST_COUNTRIES } from "./reference/middle-east";
 
 /** Lower-cased, whitespace-collapsed blob that the trigram index searches. */
 function buildBlob(parts: Array<string | undefined>): string {
@@ -121,12 +122,17 @@ async function upsertPlace(
 }
 
 async function main(): Promise<void> {
-  console.log("[seed:reference] seeding Egypt reference dataset…");
-  const devIds = await seedDevelopers(EGYPT_DEVELOPERS);
+  console.log("[seed:reference] seeding reference dataset (Egypt + Middle East)…");
+  // One developer map for all countries so a compound in any market links to its
+  // developer. Idempotent upsert by slug — safe across regions.
+  const devIds = await seedDevelopers([...EGYPT_DEVELOPERS, ...MIDDLE_EAST_DEVELOPERS]);
   console.log(`[seed:reference] developers: ${devIds.size}`);
 
   const counters = { count: 0 };
   await upsertPlace(EGYPT_TREE, null, null, "EG", devIds, counters);
+  for (const { iso, tree } of MIDDLE_EAST_COUNTRIES) {
+    await upsertPlace(tree, null, null, iso, devIds, counters);
+  }
   console.log(`[seed:reference] places: ${counters.count}`);
   console.log("[seed:reference] done.");
 }
