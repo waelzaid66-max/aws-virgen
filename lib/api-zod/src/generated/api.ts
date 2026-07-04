@@ -626,6 +626,72 @@ export const GetListingInsightsResponse = zod.object({
 
 
 /**
+ * The date ranges already reserved for a furnished/daily (hotel‑model) rental, so the client can grey them out on the calendar. Empty for non‑daily listings.
+ * @summary Booked date ranges for a furnished/daily rental
+ */
+export const GetListingAvailabilityParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const GetListingAvailabilityResponse = zod.object({
+  "data": zod.array(zod.object({
+  "check_in": zod.string(),
+  "check_out": zod.string()
+}).describe('A booked (unavailable) date range for a furnished\/daily rental.')).optional(),
+  "error": zod.object({
+  "code": zod.enum(['INVALID_DATA', 'NOT_FOUND', 'UNAUTHORIZED', 'INTERNAL_ERROR', 'FORBIDDEN', 'RATE_LIMITED']),
+  "message": zod.string()
+}).nullish(),
+  "meta": zod.object({
+  "cursor": zod.string().optional(),
+  "has_next": zod.boolean().optional(),
+  "total": zod.number().optional()
+}).optional()
+})
+
+
+/**
+ * Reserve a furnished/daily real‑estate listing for a date range (hotel model). Allowed ONLY when the listing's rental_term is furnished_daily; long‑term rent and sale are not bookable. Prevents double‑booking. No payment yet — this is a request/hold.
+ * @summary Request a short‑stay booking (furnished/daily rental only)
+ */
+export const CreateBookingParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const CreateBookingBody = zod.object({
+  "check_in": zod.string().describe('YYYY-MM-DD'),
+  "check_out": zod.string().describe('YYYY-MM-DD'),
+  "guests": zod.number().optional(),
+  "note": zod.string().nullish()
+})
+
+export const CreateBookingResponse = zod.object({
+  "data": zod.object({
+  "id": zod.string(),
+  "listing_id": zod.string(),
+  "check_in": zod.string(),
+  "check_out": zod.string(),
+  "nights": zod.number(),
+  "guests": zod.number(),
+  "price_per_night": zod.number().nullish(),
+  "total_price": zod.number().nullish(),
+  "currency": zod.string(),
+  "status": zod.string(),
+  "created_at": zod.string().nullish()
+}).optional().describe('A short‑stay reservation of a furnished\/daily rental (hotel model).'),
+  "error": zod.object({
+  "code": zod.enum(['INVALID_DATA', 'NOT_FOUND', 'UNAUTHORIZED', 'INTERNAL_ERROR', 'FORBIDDEN', 'RATE_LIMITED']),
+  "message": zod.string()
+}).nullish(),
+  "meta": zod.object({
+  "cursor": zod.string().optional(),
+  "has_next": zod.boolean().optional(),
+  "total": zod.number().optional()
+}).optional()
+})
+
+
+/**
  * Owner-only. Sets bumped_at to now so the listing sorts by COALESCE(bumped_at, created_at) in recency feeds and search. NEVER changes created_at — the true publish date is preserved. Rate-limited with a cooldown; only active, publicly visible listings can be recycled.
  * @summary Recycle (renew) a listing to the top of recency feeds
  */

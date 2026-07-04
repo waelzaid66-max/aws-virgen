@@ -4,6 +4,7 @@ import {
   text,
   numeric,
   timestamp,
+  date,
   boolean,
   integer,
   jsonb,
@@ -2520,3 +2521,48 @@ export const priceObservations = pgTable(
 
 export type PriceObservation = typeof priceObservations.$inferSelect;
 export type InsertPriceObservation = typeof priceObservations.$inferInsert;
+
+/* ── SHORT‑STAY BOOKINGS (furnished / daily rent — hotel model) ──
+ *
+ * ONLY for furnished‑daily rentals (specs.rental_term = 'furnished_daily'),
+ * which behave like a hotel reservation: a guest books a real‑estate listing for
+ * a date range. Long‑term rent and sale never touch this table — they stay a
+ * plain listing (browse + contact the owner). Payment is NOT here yet (a booking
+ * is a request/hold); pay‑through‑Banco comes later. Additive: no existing table,
+ * API or flow changes.
+ */
+export const bookings = pgTable(
+  "bookings",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    listingId: uuid("listing_id")
+      .references(() => listings.id, { onDelete: "cascade" })
+      .notNull(),
+    // The guest making the reservation.
+    guestId: uuid("guest_id")
+      .references(() => users.id, { onDelete: "set null" }),
+    checkIn: date("check_in", { mode: "string" }).notNull(),
+    checkOut: date("check_out", { mode: "string" }).notNull(),
+    nights: integer("nights").notNull(),
+    // Price snapshot at booking time (per night + total) so later listing edits
+    // never rewrite an existing reservation.
+    pricePerNight: numeric("price_per_night", { precision: 14, scale: 2 }),
+    totalPrice: numeric("total_price", { precision: 14, scale: 2 }),
+    currency: text("currency").notNull().default("EGP"),
+    guests: integer("guests").notNull().default(1),
+    note: text("note"),
+    // requested · confirmed · cancelled · rejected
+    status: text("status").notNull().default("requested"),
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (table) => [
+    // Availability + overlap checks hit (listing, status) then the date range.
+    index("idx_bookings_listing_status").on(table.listingId, table.status),
+    index("idx_bookings_guest").on(table.guestId),
+    index("idx_bookings_dates").on(table.checkIn, table.checkOut),
+  ]
+);
+
+export type Booking = typeof bookings.$inferSelect;
+export type InsertBooking = typeof bookings.$inferInsert;

@@ -2234,6 +2234,63 @@ components:
         popularity:
           type: integer
 
+    AvailabilityRange:
+      type: object
+      description: A booked (unavailable) date range for a furnished/daily rental.
+      required: [check_in, check_out]
+      properties:
+        check_in:
+          type: string
+        check_out:
+          type: string
+
+    Booking:
+      type: object
+      description: A short‑stay reservation of a furnished/daily rental (hotel model).
+      required: [id, listing_id, check_in, check_out, nights, guests, currency, status]
+      properties:
+        id:
+          type: string
+        listing_id:
+          type: string
+        check_in:
+          type: string
+        check_out:
+          type: string
+        nights:
+          type: integer
+        guests:
+          type: integer
+        price_per_night:
+          type: number
+          nullable: true
+        total_price:
+          type: number
+          nullable: true
+        currency:
+          type: string
+        status:
+          type: string
+        created_at:
+          type: string
+          nullable: true
+
+    CreateBookingBody:
+      type: object
+      required: [check_in, check_out]
+      properties:
+        check_in:
+          type: string
+          description: YYYY-MM-DD
+        check_out:
+          type: string
+          description: YYYY-MM-DD
+        guests:
+          type: integer
+        note:
+          type: string
+          nullable: true
+
     PromoCampaignView:
       type: object
       description: >
@@ -3968,6 +4025,79 @@ paths:
                 properties:
                   data:
                     $ref: "#/components/schemas/DealInsights"
+                  error:
+                    $ref: "#/components/schemas/ApiError"
+                    nullable: true
+                  meta:
+                    $ref: "#/components/schemas/Meta"
+
+  /v1/listings/{id}/availability:
+    get:
+      operationId: getListingAvailability
+      summary: Booked date ranges for a furnished/daily rental
+      description: >-
+        The date ranges already reserved for a furnished/daily (hotel‑model)
+        rental, so the client can grey them out on the calendar. Empty for
+        non‑daily listings.
+      tags: [listings]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Booked ranges
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AvailabilityRange"
+                  error:
+                    $ref: "#/components/schemas/ApiError"
+                    nullable: true
+                  meta:
+                    $ref: "#/components/schemas/Meta"
+
+  /v1/listings/{id}/bookings:
+    post:
+      operationId: createBooking
+      summary: Request a short‑stay booking (furnished/daily rental only)
+      description: >-
+        Reserve a furnished/daily real‑estate listing for a date range (hotel
+        model). Allowed ONLY when the listing's rental_term is furnished_daily;
+        long‑term rent and sale are not bookable. Prevents double‑booking. No
+        payment yet — this is a request/hold.
+      tags: [listings]
+      security:
+        - ClerkAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateBookingBody"
+      responses:
+        "200":
+          description: Booking created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Booking"
                   error:
                     $ref: "#/components/schemas/ApiError"
                     nullable: true

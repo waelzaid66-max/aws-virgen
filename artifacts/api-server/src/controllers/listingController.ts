@@ -9,6 +9,7 @@ import {
 } from "../services/ListingService";
 import { getSimilarListings } from "../services/SearchService";
 import { getListingDealInsights } from "../services/MarketInsightsService";
+import { getListingAvailability, createBooking } from "../services/BookingService";
 import { createLink } from "../services/ListingLinkService";
 import { incrementView } from "../services/LeadService";
 import { isSaved } from "../services/SaveService";
@@ -28,6 +29,9 @@ import {
   CreateListingLinkResultSchema,
   BumpListingResultSchema,
   DealInsightsSchema,
+  AvailabilityRangeSchema,
+  BookingSchema,
+  CreateBookingSchema,
 } from "../validators/schemas";
 import { MEDIA_VERIFY_RETRYABLE } from "../lib/mediaVerify";
 import { ZodError } from "zod";
@@ -154,6 +158,43 @@ export async function getListingInsightsHandler(req: Request, res: Response) {
   } catch (err) {
     console.error("[Insights]", err);
     return res.status(500).json(errorResponse("INTERNAL_ERROR", "Failed to load insights"));
+  }
+}
+
+// GET /v1/listings/:id/availability — booked date ranges (furnished/daily rental).
+export async function getAvailabilityHandler(req: Request, res: Response) {
+  try {
+    const id = req.params.id as string;
+    const ranges = await getListingAvailability(id);
+    const validated = validateResponse(AvailabilityRangeSchema.array(), ranges);
+    return res.json(successResponse(validated, { total: validated.length }));
+  } catch (err) {
+    console.error("[Availability]", err);
+    return res.status(500).json(errorResponse("INTERNAL_ERROR", "Failed to load availability"));
+  }
+}
+
+// POST /v1/listings/:id/bookings — request a short-stay booking (furnished/daily).
+export async function createBookingHandler(req: Request, res: Response) {
+  try {
+    const id = req.params.id as string;
+    const body = CreateBookingSchema.parse(req.body);
+    const booking = await createBooking(req.userId!, id, body);
+    const validated = validateResponse(BookingSchema, booking);
+    return res.json(successResponse(validated));
+  } catch (err) {
+    if (err instanceof ZodError) {
+      return res.status(422).json(errorResponse("INVALID_DATA", "Invalid booking data"));
+    }
+    const code = (err as { code?: string })?.code;
+    const msg = (err as Error)?.message ?? "Booking failed";
+    if (code === "NOT_FOUND") return res.status(404).json(errorResponse("NOT_FOUND", msg));
+    if (code === "FORBIDDEN") return res.status(403).json(errorResponse("FORBIDDEN", msg));
+    if (code === "CONFLICT") return res.status(409).json(errorResponse("INVALID_DATA", msg));
+    if (code === "INVALID_DATA") return res.status(422).json(errorResponse("INVALID_DATA", msg));
+    if (code === "UNAUTHORIZED") return res.status(401).json(errorResponse("UNAUTHORIZED", msg));
+    console.error("[Booking]", err);
+    return res.status(500).json(errorResponse("INTERNAL_ERROR", "Failed to create booking"));
   }
 }
 

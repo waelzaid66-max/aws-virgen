@@ -38,6 +38,8 @@ import type {
   ContactLead200,
   ContactLeadBody,
   CreateAdminPlan200,
+  CreateBooking200,
+  CreateBookingBody,
   CreateConversation200,
   CreateConversationBody,
   CreateFinancingIntermediary200,
@@ -115,6 +117,7 @@ import type {
   GetInvestment200,
   GetInvoice200,
   GetListing200,
+  GetListingAvailability200,
   GetListingComments200,
   GetListingInsights200,
   GetListings200,
@@ -1397,6 +1400,156 @@ export function useGetListingInsights<TData = Awaited<ReturnType<typeof getListi
 
 
 
+
+export const getGetListingAvailabilityUrl = (id: string,) => {
+
+
+
+
+  return `/api/v1/listings/${id}/availability`
+}
+
+/**
+ * The date ranges already reserved for a furnished/daily (hotel‑model) rental, so the client can grey them out on the calendar. Empty for non‑daily listings.
+ * @summary Booked date ranges for a furnished/daily rental
+ */
+export const getListingAvailability = async (id: string, options?: RequestInit): Promise<GetListingAvailability200> => {
+
+  return customFetch<GetListingAvailability200>(getGetListingAvailabilityUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetListingAvailabilityQueryKey = (id: string,) => {
+    return [
+    `/api/v1/listings/${id}/availability`
+    ] as const;
+    }
+
+
+export const getGetListingAvailabilityQueryOptions = <TData = Awaited<ReturnType<typeof getListingAvailability>>, TError = ErrorType<unknown>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getListingAvailability>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetListingAvailabilityQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getListingAvailability>>> = ({ signal }) => getListingAvailability(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getListingAvailability>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetListingAvailabilityQueryResult = NonNullable<Awaited<ReturnType<typeof getListingAvailability>>>
+export type GetListingAvailabilityQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Booked date ranges for a furnished/daily rental
+ */
+
+export function useGetListingAvailability<TData = Awaited<ReturnType<typeof getListingAvailability>>, TError = ErrorType<unknown>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getListingAvailability>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetListingAvailabilityQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getCreateBookingUrl = (id: string,) => {
+
+
+
+
+  return `/api/v1/listings/${id}/bookings`
+}
+
+/**
+ * Reserve a furnished/daily real‑estate listing for a date range (hotel model). Allowed ONLY when the listing's rental_term is furnished_daily; long‑term rent and sale are not bookable. Prevents double‑booking. No payment yet — this is a request/hold.
+ * @summary Request a short‑stay booking (furnished/daily rental only)
+ */
+export const createBooking = async (id: string,
+    createBookingBody: CreateBookingBody, options?: RequestInit): Promise<CreateBooking200> => {
+
+  return customFetch<CreateBooking200>(getCreateBookingUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(createBookingBody)
+  }
+);}
+
+
+
+
+export const getCreateBookingMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createBooking>>, TError,{id: string;data: BodyType<CreateBookingBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createBooking>>, TError,{id: string;data: BodyType<CreateBookingBody>}, TContext> => {
+
+const mutationKey = ['createBooking'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createBooking>>, {id: string;data: BodyType<CreateBookingBody>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  createBooking(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateBookingMutationResult = NonNullable<Awaited<ReturnType<typeof createBooking>>>
+    export type CreateBookingMutationBody = BodyType<CreateBookingBody>
+    export type CreateBookingMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Request a short‑stay booking (furnished/daily rental only)
+ */
+export const useCreateBooking = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createBooking>>, TError,{id: string;data: BodyType<CreateBookingBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createBooking>>,
+        TError,
+        {id: string;data: BodyType<CreateBookingBody>},
+        TContext
+      > => {
+      return useMutation(getCreateBookingMutationOptions(options));
+    }
 
 export const getBumpListingUrl = (id: string,) => {
 

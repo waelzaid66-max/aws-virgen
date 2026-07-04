@@ -978,6 +978,36 @@ export const PlaceSuggestionSchema = z
   })
   .strict();
 
+// Short‑stay bookings (furnished/daily rental — hotel model).
+export const AvailabilityRangeSchema = z
+  .object({ check_in: z.string(), check_out: z.string() })
+  .strict();
+
+export const BookingSchema = z
+  .object({
+    id: z.string(),
+    listing_id: z.string(),
+    check_in: z.string(),
+    check_out: z.string(),
+    nights: z.number(),
+    guests: z.number(),
+    price_per_night: z.number().nullable(),
+    total_price: z.number().nullable(),
+    currency: z.string(),
+    status: z.string(),
+    created_at: z.string().nullable(),
+  })
+  .strict();
+
+export const CreateBookingSchema = z
+  .object({
+    check_in: z.string(),
+    check_out: z.string(),
+    guests: z.number().int().positive().optional(),
+    note: z.string().max(500).nullable().optional(),
+  })
+  .strict();
+
 // GET /v1/search/facets — per-value counts of the currently-visible inventory,
 // optionally scoped to a category. The client gates chips on count > 0 so it
 // never offers a filter that would return an empty page.

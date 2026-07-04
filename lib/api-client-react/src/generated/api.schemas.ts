@@ -1581,6 +1581,40 @@ export interface PlaceSuggestion {
   popularity: number;
 }
 
+/**
+ * A booked (unavailable) date range for a furnished/daily rental.
+ */
+export interface AvailabilityRange {
+  check_in: string;
+  check_out: string;
+}
+
+/**
+ * A short‑stay reservation of a furnished/daily rental (hotel model).
+ */
+export interface Booking {
+  id: string;
+  listing_id: string;
+  check_in: string;
+  check_out: string;
+  nights: number;
+  guests: number;
+  price_per_night?: number | null;
+  total_price?: number | null;
+  currency: string;
+  status: string;
+  created_at?: string | null;
+}
+
+export interface CreateBookingBody {
+  /** YYYY-MM-DD */
+  check_in: string;
+  /** YYYY-MM-DD */
+  check_out: string;
+  guests?: number;
+  note?: string | null;
+}
+
 export type PromoCampaignViewStatus = typeof PromoCampaignViewStatus[keyof typeof PromoCampaignViewStatus];
 
 
@@ -2703,6 +2737,18 @@ export type GetSimilarListings200 = {
 
 export type GetListingInsights200 = {
   data?: DealInsights;
+  error?: ApiError | null;
+  meta?: Meta;
+};
+
+export type GetListingAvailability200 = {
+  data?: AvailabilityRange[];
+  error?: ApiError | null;
+  meta?: Meta;
+};
+
+export type CreateBooking200 = {
+  data?: Booking;
   error?: ApiError | null;
   meta?: Meta;
 };
