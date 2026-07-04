@@ -50,6 +50,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppText } from "@/components/AppText";
+import { DealRatingChip } from "@/components/DealRatingChip";
 import { LinkedListings } from "@/components/LinkedListings";
 import { ListingComments } from "@/components/ListingComments";
 import { MediaGallery } from "@/components/MediaGallery";
@@ -930,6 +931,10 @@ export default function ListingDetailScreen() {
               </View>
             ) : null}
           </View>
+
+          {/* Deal rating vs the listing's real market segment. Self-hides until
+              the segment has enough real samples (never a fabricated verdict). */}
+          {!isSold ? <DealRatingChip listingId={id} /> : null}
 
           {aboveFoldMonthly ? (
             <View style={[styles.monthlyRow, { flexDirection: rowDir }]}>

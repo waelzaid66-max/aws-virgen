@@ -1679,6 +1679,12 @@ const en = {
       ddp: "DDP",
     },
   },
+  dealRating: {
+    great: "Great price",
+    good: "Good price",
+    fair: "Fair price",
+    above: "Above market",
+  },
 };
 
 const ar: typeof en = {
@@ -3354,6 +3360,12 @@ const ar: typeof en = {
       dap: "DAP",
       ddp: "DDP",
     },
+  },
+  dealRating: {
+    great: "سعر ممتاز",
+    good: "سعر جيد",
+    fair: "سعر عادل",
+    above: "أعلى من السوق",
   },
 };
 
