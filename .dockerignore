@@ -1,0 +1,22 @@
+# Keep the Docker build context small + never ship secrets or local junk.
+**/node_modules
+**/dist
+**/.expo
+**/.turbo
+**/coverage
+**/.vscode
+**/.idea
+.git
+.github
+**/*.log
+**/.env
+**/.env.*
+!**/.env.*.example
+# Mobile app is NOT deployed to AWS (it ships to the app stores via EAS).
+artifacts/banco-mobile
+# Local DB dumps / attached assets (never in an image).
+database_backup.dump
+database_backup.dump.gz
+attached_assets
+# Deployment docs don't belong inside the runtime image.
+deploy/aws/reports
