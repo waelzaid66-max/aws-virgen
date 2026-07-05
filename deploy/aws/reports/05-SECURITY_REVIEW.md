@@ -1,19 +1,25 @@
 # 05 — Security Review
 
-## 🔴 BLOCKER (must fix before AWS production) — 1 item
+## ✅ RESOLVED (was the only blocker) — S1
 
-### S1. Object storage is Replit-only → REQUIRED CHANGE: S3 adapter
-`src/lib/objectStorage.ts` talks to a **Replit sidecar** (`127.0.0.1:1106`) via
-`@google-cloud/storage` external-account credentials. On AWS that endpoint does
-not exist, so **all uploads/media reads fail**.
-
-**Required change (deployment-only, no business logic):** implement an S3-backed
-`ObjectStorageService` with the SAME public interface (`getPublicObjectSearchPaths`,
-presigned upload/download, ACL check) behind a provider switch. Keep the Replit
-path for Replit, select via `OBJECT_STORAGE_PROVIDER`.
-- New env: `OBJECT_STORAGE_PROVIDER=s3`, `AWS_REGION`, `S3_BUCKET` (+ IAM role on EC2/ECS — no keys).
-- Reuse the existing ACL model (`objectAcl.ts`) as object metadata/tags.
-- **This is intentionally NOT auto-written here** (it's a real code change that must ship with its own tests). Recommend a focused PR. Everything else is ready and waits on this.
+### S1. Object storage on AWS → S3 adapter **IMPLEMENTED**
+`src/lib/objectStorage.ts` (Replit/GCS sidecar) no longer blocks AWS. An **S3
+backend** now ships behind a provider switch:
+- `src/lib/objectStorageProvider.ts` — `getObjectStorageService()` factory +
+  `ObjectStorage` interface. Default = Replit (unchanged); `OBJECT_STORAGE_PROVIDER=s3` = S3.
+- `src/lib/objectStorage.s3.ts` — `S3ObjectStorageService` on AWS SDK v3. Single
+  bucket (`S3_BUCKET`); `PRIVATE_OBJECT_DIR` / `PUBLIC_OBJECT_SEARCH_PATHS` become
+  key prefixes. ACL stored as `x-amz-meta-acl-policy` JSON, updated via self-
+  CopyObject (REPLACE, content-type preserved). Presigned PUT uploads; access rule
+  mirrors `canAccessObject` (public-read | owner). Credentials from the default
+  chain → **EC2/ECS IAM role, no static keys**.
+- The 4 callers were wired through the factory; behaviour is identical when the
+  var is unset.
+- **Verified:** api typecheck 0; `objectStorage.s3.test.ts` (7 cases); full backend
+  suite **272 pass / 3 skip / 0 fail**.
+- **Set at deploy time:** `OBJECT_STORAGE_PROVIDER=s3`, `AWS_REGION`, `S3_BUCKET`,
+  `PRIVATE_OBJECT_DIR`, `PUBLIC_OBJECT_SEARCH_PATHS` + an IAM role scoped to the
+  bucket. Integration against the real bucket is validated on first deploy.
 
 ## 🟠 Must verify at deploy time
 

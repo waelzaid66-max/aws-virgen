@@ -67,7 +67,7 @@ the DB blipped). **All health endpoints already exist — none were missing.**
 
 1. [ ] Create RDS PostgreSQL 16 (`db.t4g.micro`), enable automated backups; `CREATE EXTENSION pg_trgm`.
 2. [ ] Create the S3 media bucket (block public access) + IAM instance role (S3 + SSM + CW Logs, least privilege).
-3. [ ] **Implement the S3 object-storage adapter** (report 05 S1) + tests. ← the one code blocker.
+3. [x] ~~Implement the S3 object-storage adapter~~ — **DONE** (report 05 S1). Just set `OBJECT_STORAGE_PROVIDER=s3` + the S3 env vars at deploy.
 4. [ ] Put all secrets in SSM `/banco/prod/*` (SecureString), incl. `sk_live`/`pk_live` Clerk + Paymob live + `PAYMENT_CONFIG_ENCRYPTION_KEY` + `SESSION_SECRET`.
 5. [ ] Launch EC2 `t4g.small` with the instance role; install Docker + compose; clone this repo to `/opt/banco/aws-virgen`.
 6. [ ] Security groups: web 80/443 public; app 8080 ← web SG only; db 5432 ← app SG only.
@@ -81,14 +81,15 @@ the DB blipped). **All health endpoints already exist — none were missing.**
 
 | Gate | Verdict |
 |---|---|
-| Code quality (typecheck, tests, build) | ✅ GO — full api suite green, all surfaces typecheck, images build. |
+| Code quality (typecheck, tests, build) | ✅ GO — full api suite **272 pass / 0 fail**, all surfaces typecheck, images build. |
 | Deployment assets | ✅ GO — Dockerfiles, compose, Nginx, scripts, CD, env templates, CloudWatch all provided. |
 | Infrastructure plan | ✅ GO — lowest-cost topology + exact resource list + costs. |
-| **Object storage on AWS** | 🔴 **NO-GO until the S3 adapter ships** (report 05 S1). |
-| Secrets / TLS / IAM / SGs | ⚠️ CONDITIONAL — configure per checklist before go-live. |
+| **Object storage on AWS** | ✅ GO — **S3 adapter implemented + tested** (report 05 S1). |
+| Secrets / TLS / IAM / SGs | ⚠️ CONDITIONAL — configure per checklist before go-live (ops, not code). |
 
-### 🟨 Overall: **CONDITIONAL GO.**
-The repository is deployment-ready — infrastructure, containers, CI/CD, docs, and
-health/logging are complete. **One code change gates production: the S3 object-
-storage adapter.** Do that (with tests), complete the checklist, and it is a full
-GO. Nothing else blocks AWS deployment.
+### 🟩 Overall: **GO (config-gated).**
+The repository is deployment-ready end to end — infrastructure, containers,
+CI/CD, docs, health/logging, **and the S3 storage backend**. No code blockers
+remain. The only remaining items are operational configuration (provision RDS/S3/
+IAM/SGs/TLS, load secrets into SSM, run the seeds once) — all in the checklist
+above. Complete those and deploy.
