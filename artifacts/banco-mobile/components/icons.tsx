@@ -54,6 +54,7 @@ import {
   Bed,
   CircleMinus,
   CornerUpLeft,
+  CornerUpRight,
   Smile,
   ThumbsDown,
   Hourglass,
@@ -245,6 +246,7 @@ const ICONS: Record<string, LucideIcon> = {
   // Previously unmapped → rendered the fallback glyph (wrong icon). Now real:
   "bed-outline": Bed,
   "corner-up-left": CornerUpLeft,
+  "corner-up-right": CornerUpRight,
   "minus-circle": CircleMinus,
   "smile": Smile,
   "thumbs-down": ThumbsDown,

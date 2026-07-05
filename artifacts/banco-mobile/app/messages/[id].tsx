@@ -25,21 +25,17 @@ import {
   Modal,
   Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
-  TextInput,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppText } from "@/components/AppText";
 import { AppTextInput } from "@/components/AppTextInput";
+import { EmojiPicker } from "@/components/EmojiPicker";
 import { useI18n } from "@/context/LanguageContext";
 import { useColors } from "@/hooks/useColors";
 import { uploadImageAsset } from "@/lib/upload";
-
-// Lightweight quick-reactions — no emoji keyboard dependency, just appended text.
-const QUICK_EMOJIS = ["👍", "🙏", "😊", "🔥", "✅", "❤️", "😂", "💰", "🚗", "📍"];
 
 // Allowlisted emojis for message reactions — MUST mirror the server's
 // REACTION_EMOJIS (ConversationService) so toggles aren't rejected.
@@ -697,30 +693,7 @@ export default function ThreadScreen() {
         )}
 
         {emojiOpen ? (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            keyboardShouldPersistTaps="always"
-            contentContainerStyle={[
-              styles.emojiBar,
-              { flexDirection: isRTL ? "row-reverse" : "row" },
-            ]}
-            style={{ backgroundColor: colors.background }}
-          >
-            {QUICK_EMOJIS.map((e) => (
-              <Pressable
-                key={e}
-                onPress={() => {
-                  Haptics.selectionAsync();
-                  setDraft((d) => d + e);
-                }}
-                style={styles.emojiBtn}
-                testID={`emoji-${e}`}
-              >
-                <AppText style={styles.emojiText}>{e}</AppText>
-              </Pressable>
-            ))}
-          </ScrollView>
+          <EmojiPicker onSelect={(e) => setDraft((d) => d + e)} />
         ) : null}
 
         {replyTo ? (
@@ -839,6 +812,9 @@ export default function ThreadScreen() {
               color={
                 !draft.trim() ? colors.mutedForeground : colors.primaryForeground
               }
+              // The paper-plane points toward the send direction — mirror it in RTL
+              // so it flies left in Arabic, matching WhatsApp/Messenger.
+              style={{ transform: [{ scaleX: isRTL ? -1 : 1 }] }}
             />
           </Pressable>
         </View>
@@ -894,7 +870,12 @@ export default function ThreadScreen() {
                 style={[styles.previewBtn, { backgroundColor: colors.primary }]}
                 testID="preview-send"
               >
-                <Feather name="send" size={16} color={colors.primaryForeground} />
+                <Feather
+                  name="send"
+                  size={16}
+                  color={colors.primaryForeground}
+                  style={{ transform: [{ scaleX: isRTL ? -1 : 1 }] }}
+                />
                 <AppText
                   style={[
                     styles.previewBtnText,
@@ -978,7 +959,11 @@ export default function ThreadScreen() {
               style={[styles.sheetAction, { flexDirection: isRTL ? "row-reverse" : "row" }]}
               testID="action-reply"
             >
-              <Feather name="corner-up-left" size={18} color={colors.foreground} />
+              <Feather
+                name={isRTL ? "corner-up-right" : "corner-up-left"}
+                size={18}
+                color={colors.foreground}
+              />
               <AppText style={[styles.sheetActionText, { color: colors.foreground }]}>
                 {t("chat.reply")}
               </AppText>
@@ -1054,17 +1039,6 @@ const styles = StyleSheet.create({
   },
   empty: { flex: 1, alignItems: "center", justifyContent: "center", gap: 10, paddingTop: 80 },
   emptyText: { fontSize: 14, fontFamily: "Inter_400Regular", textAlign: "center" },
-  emojiBar: {
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    alignItems: "center",
-  },
-  emojiBtn: {
-    paddingHorizontal: 4,
-    paddingVertical: 2,
-  },
-  emojiText: { fontSize: 24 },
   inputBar: {
     alignItems: "flex-end",
     gap: 8,
@@ -1090,6 +1064,9 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
     fontSize: 15,
     fontFamily: "Inter_400Regular",
+    // Android multiline grows from the top, not the vertical centre — keeps a
+    // long message aligned to the first line as it expands.
+    textAlignVertical: "top",
   },
   sendBtn: {
     width: 42,
