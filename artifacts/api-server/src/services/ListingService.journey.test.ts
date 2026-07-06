@@ -56,10 +56,17 @@ async function seedOwner(): Promise<string> {
 
 beforeAll(async () => {
   // Use a real seeded location so strict normalization resolves it (score 1.0).
+  // DETERMINISM (CI flake guard): the suite runs files in parallel against ONE
+  // shared DB, and other suites insert (and later delete) their own throwaway
+  // location rows. Without an ORDER BY, Postgres returns an ARBITRARY row — on
+  // CI this occasionally picked a sibling test's transient location, breaking
+  // this journey run. Order by creation so we always land on a stable seeded
+  // reference row, never a parallel test's temporary one.
   const [loc] = await db
     .select({ area: locations.area, city: locations.city })
     .from(locations)
     .where(isNotNull(locations.area))
+    .orderBy(locations.createdAt, locations.id)
     .limit(1);
   locationInput = loc?.area ?? loc?.city ?? "Cairo";
 });
@@ -148,6 +155,26 @@ describe("listing journey: create → feed + search + SEO", () => {
 
     const { id } = await createListing(input, ownerClerk);
     expect(typeof id).toBe("string");
+
+    // Self-diagnosis first (CI flake guard): getSeoListing() collapses every
+    // hide-reason into one null, which once surfaced in CI as an unreadable
+    // "expected null not to be null". Assert the raw row's visibility fields
+    // individually so any future failure names the ACTUAL cause (missing row /
+    // wrong status / spam flag) instead of a bare null.
+    const [raw] = await db
+      .select({
+        status: listings.status,
+        isFlagged: listings.isFlagged,
+        flagReason: listings.flagReason,
+      })
+      .from(listings)
+      .where(inArray(listings.id, [id]));
+    expect(raw, `listing row ${id} missing right after create`).toBeTruthy();
+    expect(raw!.status).toBe("active");
+    expect(
+      raw!.isFlagged,
+      `listing unexpectedly flagged: ${raw!.flagReason ?? "?"}`,
+    ).not.toBe(true);
 
     // SEO page — flagged as a request, price shown as "price requested",
     // never as "0 EGP".

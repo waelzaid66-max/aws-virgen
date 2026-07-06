@@ -56,6 +56,33 @@ afterAll(async () => {
   await deleteUsers(...uids);
 });
 
+/**
+ * Booking notifications fire on setImmediate (best-effort, off the response
+ * path), so poll briefly for the recipient's row instead of racing a single
+ * tick. Optionally narrows by title (a user can hold several booking notes).
+ */
+async function pollBookingNotification(
+  userId: string,
+  bookingId: string,
+  title?: string,
+): Promise<{ title: string; data: unknown } | undefined> {
+  for (let i = 0; i < 20; i++) {
+    await new Promise((r) => setTimeout(r, 50));
+    const rows = await db
+      .select({ type: notifications.type, title: notifications.title, data: notifications.data })
+      .from(notifications)
+      .where(eq(notifications.userId, userId));
+    const hit = rows.find(
+      (r) =>
+        r.type === "booking" &&
+        (r.data as { booking_id?: string })?.booking_id === bookingId &&
+        (!title || r.title === title),
+    );
+    if (hit) return hit;
+  }
+  return undefined;
+}
+
 describe("BookingService — furnished/daily hotel model", () => {
   it("books a furnished_daily listing (nights + total) and blocks those dates", async () => {
     const owner = await seedUser();
@@ -167,17 +194,27 @@ describe("BookingService — furnished/daily hotel model", () => {
 
     // The notification fires on setImmediate (best-effort, off the response path),
     // so poll briefly for the host's row rather than racing a single tick.
-    let note: { type: string; data: unknown } | undefined;
-    for (let i = 0; i < 20 && !note; i++) {
-      await new Promise((r) => setTimeout(r, 50));
-      const rows = await db
-        .select({ type: notifications.type, data: notifications.data })
-        .from(notifications)
-        .where(eq(notifications.userId, owner.id));
-      note = rows.find((r) => r.type === "booking");
-    }
+    const note = await pollBookingNotification(owner.id, b.id);
     expect(note).toBeTruthy();
-    expect((note!.data as { booking_id?: string }).booking_id).toBe(b.id);
+  });
+
+  it("lifecycle notifications: confirm notifies the guest; cancel notifies the host", async () => {
+    const owner = await seedUser();
+    const guest = await seedUser();
+    const lid = await seedListing(owner.id, "furnished_daily");
+    const b = await createBooking(guest.clerk, lid, {
+      check_in: "2030-09-01",
+      check_out: "2030-09-03",
+    });
+
+    await updateBookingStatus(owner.clerk, b.id, "confirm");
+    const guestNote = await pollBookingNotification(guest.id, b.id);
+    expect(guestNote).toBeTruthy();
+    expect(guestNote!.title).toBe("Booking confirmed");
+
+    await updateBookingStatus(guest.clerk, b.id, "cancel");
+    const hostNote = await pollBookingNotification(owner.id, b.id, "Booking cancelled");
+    expect(hostNote).toBeTruthy();
   });
 
   it("enforces role separation on transitions (guest can't confirm, host can't cancel)", async () => {

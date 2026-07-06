@@ -273,7 +273,11 @@ export async function updateBookingStatus(
   if (!me) throw codedError("UNAUTHORIZED", "User not found");
 
   const [row] = await db
-    .select({ booking: bookings, ownerId: listings.userId })
+    .select({
+      booking: bookings,
+      ownerId: listings.userId,
+      listingTitle: listings.title,
+    })
     .from(bookings)
     .innerJoin(listings, eq(listings.id, bookings.listingId))
     .where(eq(bookings.id, bookingId))
@@ -301,5 +305,36 @@ export async function updateBookingStatus(
     .set({ status: spec.to })
     .where(eq(bookings.id, bookingId))
     .returning();
+
+  // Close the notification loop: creation already notifies the host; lifecycle
+  // transitions notify the OTHER party (host actions → guest; guest cancel →
+  // host). Same best-effort contract as creation — deferred off the response
+  // path, createNotification swallows its own errors + respects per-category
+  // mute + fans out to push. Deep-links to the bookings inbox via type=booking.
+  const recipientId = isHostAction ? row.booking.guestId : row.ownerId;
+  if (recipientId) {
+    const notify = isHostAction
+      ? {
+          title: action === "confirm" ? "Booking confirmed" : "Booking declined",
+          body:
+            action === "confirm"
+              ? `Your stay ${updated.checkIn} → ${updated.checkOut} at "${row.listingTitle}" is confirmed`
+              : `Your request for "${row.listingTitle}" was declined — the dates are free to rebook elsewhere`,
+        }
+      : {
+          title: "Booking cancelled",
+          body: `The guest cancelled ${updated.checkIn} → ${updated.checkOut} for "${row.listingTitle}" — those dates are open again`,
+        };
+    setImmediate(() => {
+      void createNotification({
+        userId: recipientId,
+        type: "booking",
+        title: notify.title,
+        body: notify.body,
+        data: { listing_id: updated.listingId, booking_id: updated.id },
+      });
+    });
+  }
+
   return toDTO(updated);
 }

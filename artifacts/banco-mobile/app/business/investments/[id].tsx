@@ -13,6 +13,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
+  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -194,10 +195,43 @@ export default function InvestmentDetailScreen() {
         </AppText>
 
         <View style={[styles.metaRow, { flexDirection: rowDir }]}>
-          <Feather name="map-pin" size={13} color={colors.mutedForeground} />
-          <AppText style={[styles.metaText, { color: colors.mutedForeground }]}>
-            {detail.location}
-          </AppText>
+          {/* Factory / production-line locations are real places — tap opens the
+              maps app (same text-search fallback the listing detail uses). Only
+              rendered tappable when a location actually exists (honest gating). */}
+          <Pressable
+            onPress={() => {
+              const place = (detail.location ?? "").trim();
+              if (!place) return;
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              const q = encodeURIComponent(place);
+              const webUrl = `https://www.google.com/maps/search/?api=1&query=${q}`;
+              const nativeUrl = Platform.select({
+                ios: `maps://?q=${q}`,
+                android: `geo:0,0?q=${q}`,
+                default: webUrl,
+              });
+              Linking.openURL(nativeUrl ?? webUrl).catch(() =>
+                Linking.openURL(webUrl).catch(() => {}),
+              );
+            }}
+            disabled={!detail.location}
+            style={[styles.metaRow, { flexDirection: rowDir }]}
+            testID="investment-open-maps"
+          >
+            <Feather
+              name="map-pin"
+              size={13}
+              color={detail.location ? colors.accent : colors.mutedForeground}
+            />
+            <AppText
+              style={[
+                styles.metaText,
+                { color: detail.location ? colors.accent : colors.mutedForeground },
+              ]}
+            >
+              {detail.location}
+            </AppText>
+          </Pressable>
           {detail.industry ? (
             <>
               <AppText style={[styles.metaDot, { color: colors.mutedForeground }]}>
