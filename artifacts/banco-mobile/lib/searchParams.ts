@@ -14,8 +14,6 @@ import {
   apiCategoryFor,
   industrialGroupForCategory,
 } from "@/components/CategoryTabs";
-import { DEFAULT_MARKET_COUNTRY } from "@/constants/listingCreateTaxonomy";
-import { DEFAULT_NEAR_RADIUS_KM } from "@/lib/nearMe";
 import { engineByKey } from "@/constants/engines";
 
 /** Result ordering — mirrors the backend SearchListingsSort enum 1:1. */
@@ -48,8 +46,6 @@ export interface SearchCriteria {
   /** Real-estate rental system (specs.rental_term) — furnished_daily / new_law /
    *  old_law / annual_contract; null = any. */
   rentalTerm: string | null;
-  /** UI-only market for rental-term chips (EG/SA/AE/…); not sent to API. */
-  marketCountry: string;
   /** Car brand/model — matched against the English listing title server-side. */
   brand: string | null;
   model: string | null;
@@ -63,11 +59,6 @@ export interface SearchCriteria {
   originType: SearchListingsOriginType | null;
   /** Facilities/materials sub-type within the industrial group ("all" = whole group). */
   industrialType: IndustrialType;
-  /** Geo radius filter — active only when enabled and coords are set. */
-  nearMeEnabled: boolean;
-  nearLat: number | null;
-  nearLng: number | null;
-  radiusKm: number;
 }
 
 export const DEFAULT_CRITERIA: SearchCriteria = {
@@ -80,7 +71,6 @@ export const DEFAULT_CRITERIA: SearchCriteria = {
   location: "",
   paymentType: "any",
   rentalTerm: null,
-  marketCountry: DEFAULT_MARKET_COUNTRY,
   brand: null,
   model: null,
   fuelType: null,
@@ -90,10 +80,6 @@ export const DEFAULT_CRITERIA: SearchCriteria = {
   industry: null,
   originType: null,
   industrialType: "all",
-  nearMeEnabled: false,
-  nearLat: null,
-  nearLng: null,
-  radiusKm: DEFAULT_NEAR_RADIUS_KM,
 };
 
 /**
@@ -120,8 +106,7 @@ export function hasActiveCriteria(c: SearchCriteria): boolean {
     !!c.maxYear ||
     !!c.industry ||
     !!c.originType ||
-    c.industrialType !== "all" ||
-    (c.nearMeEnabled && c.nearLat != null && c.nearLng != null)
+    c.industrialType !== "all"
   );
 }
 
@@ -141,7 +126,6 @@ export function criteriaKey(c: SearchCriteria): string {
     c.location.trim(),
     c.paymentType,
     c.rentalTerm,
-    c.marketCountry,
     c.brand,
     c.model,
     c.fuelType,
@@ -151,10 +135,6 @@ export function criteriaKey(c: SearchCriteria): string {
     c.industry,
     c.originType,
     c.industrialType,
-    c.nearMeEnabled,
-    c.nearLat,
-    c.nearLng,
-    c.radiusKm,
   ]);
 }
 
@@ -214,12 +194,6 @@ export function buildSearchParams(
 
   if (c.industry) sp.industry = c.industry;
   if (c.originType) sp.origin_type = c.originType;
-
-  if (c.nearMeEnabled && c.nearLat != null && c.nearLng != null) {
-    sp.near_lat = c.nearLat;
-    sp.near_lng = c.nearLng;
-    sp.radius_km = c.radiusKm;
-  }
 
   if (cursor) sp.cursor = cursor;
   return sp;

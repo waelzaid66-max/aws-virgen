@@ -1,6 +1,6 @@
 import { db } from "@workspace/db";
 import { users, transactions, invoices } from "@workspace/db/schema";
-import { and, desc, eq, lt, or, sql } from "drizzle-orm";
+import { and, desc, eq, gte, lt, lte, or, sql } from "drizzle-orm";
 import {
   generateInvoiceNumber,
   insufficientFunds,
@@ -226,29 +226,48 @@ function decodeCursor(cursor: string): { ms: number; id: string } | null {
   }
 }
 
+function parseIsoDate(value: string, label: string): Date {
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) throw invalidData(`Invalid ${label} date`);
+  return d;
+}
+
 /**
  * Cursor-paginated transaction history for a user, newest first. The cursor is
  * a stable (created_at, id) keyset so concurrent inserts never skip/duplicate.
  */
 export async function listTransactions(
   userId: string,
-  opts: { limit?: number; cursor?: string } = {}
+  opts: {
+    limit?: number;
+    cursor?: string;
+    from?: string;
+    to?: string;
+    type?: LedgerType;
+  } = {}
 ): Promise<TransactionPage> {
   const limit = Math.min(Math.max(opts.limit ?? 20, 1), MAX_TX_PAGE);
   const decoded = opts.cursor ? decodeCursor(opts.cursor) : null;
 
-  const where = decoded
-    ? and(
-        eq(transactions.userId, userId),
-        or(
-          lt(transactions.createdAt, new Date(decoded.ms)),
-          and(
-            eq(transactions.createdAt, new Date(decoded.ms)),
-            lt(transactions.id, decoded.id)
-          )
+  const filters = [eq(transactions.userId, userId)];
+
+  if (opts.from) filters.push(gte(transactions.createdAt, parseIsoDate(opts.from, "from")));
+  if (opts.to) filters.push(lte(transactions.createdAt, parseIsoDate(opts.to, "to")));
+  if (opts.type) filters.push(eq(transactions.type, opts.type));
+
+  if (decoded) {
+    filters.push(
+      or(
+        lt(transactions.createdAt, new Date(decoded.ms)),
+        and(
+          eq(transactions.createdAt, new Date(decoded.ms)),
+          lt(transactions.id, decoded.id)
         )
-      )
-    : eq(transactions.userId, userId);
+      )!
+    );
+  }
+
+  const where = and(...filters);
 
   const rows = await db
     .select({

@@ -42,9 +42,14 @@ const SUPPORT_EMAIL = "support@banco.it";
 const CATEGORY_ORDER: NotificationPreferenceType[] = [
   "lead",
   "message",
+  "booking",
+  "rfq",
+  "comment",
+  "review",
   "new_match",
   "price_drop",
-  "rfq",
+  "investment",
+  "global_supply",
   "system",
 ];
 

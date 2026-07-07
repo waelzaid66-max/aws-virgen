@@ -47,6 +47,7 @@ import { PermissionRationaleModal } from "@/components/PermissionRationaleModal"
 import { PromoteButton } from "@/components/PromoteButton";
 import { useI18n } from "@/context/LanguageContext";
 import { useSession } from "@/context/SessionContext";
+import { filterBookableListings } from "@/lib/rentalHost";
 import { useColors } from "@/hooks/useColors";
 import { buildAvatarDataUri, uploadMediaAsset } from "@/lib/upload";
 
@@ -833,8 +834,9 @@ export default function ProfileScreen() {
       });
     }
     const posts = listingsQuery.data?.data ?? [];
+    const hasBookableRentals = filterBookableListings(posts).length > 0;
+    const showRentalHub = hasBookableRentals || isBusiness;
 
-    // Overflow menu → existing routes only (no new screens).
     const menuItems: {
       key: string;
       icon: React.ComponentProps<typeof Feather>["name"];
@@ -855,30 +857,34 @@ export default function ProfileScreen() {
         onPress: launchCoverPicker,
       },
       {
-        key: "account",
-        icon: "user",
-        label: t("profile.menuAccountType"),
+        key: "listings",
+        icon: "grid",
+        label: t("profile.menuMyListings"),
         onPress: () => {
           setShowMenu(false);
-          setNeedsAccountType(true);
+          router.push("/listings/mine");
         },
       },
+      ...(showRentalHub
+        ? [
+            {
+              key: "rental-hub",
+              icon: "home" as const,
+              label: t("profile.menuRentalHub"),
+              onPress: () => {
+                setShowMenu(false);
+                router.push("/rentals/hub" as Href);
+              },
+            },
+          ]
+        : []),
       {
-        key: "verify",
-        icon: "shield",
-        label: t("profile.menuVerify"),
+        key: "trips",
+        icon: "calendar",
+        label: t("profile.menuTrips"),
         onPress: () => {
           setShowMenu(false);
-          router.push("/business/verification");
-        },
-      },
-      {
-        key: "plans",
-        icon: "star",
-        label: t("profile.menuPlans"),
-        onPress: () => {
-          setShowMenu(false);
-          router.push("/plans");
+          router.push("/bookings");
         },
       },
       {
@@ -891,18 +897,45 @@ export default function ProfileScreen() {
         },
       },
       {
-        key: "bookings",
-        icon: "calendar",
-        label: t("profile.menuBookings"),
+        key: "plans",
+        icon: "star",
+        label: t("profile.menuPlans"),
         onPress: () => {
           setShowMenu(false);
-          router.push("/bookings");
+          router.push("/plans");
+        },
+      },
+      {
+        key: "verify",
+        icon: "shield",
+        label: t("profile.menuVerify"),
+        onPress: () => {
+          setShowMenu(false);
+          router.push("/business/verification");
+        },
+      },
+      {
+        key: "account",
+        icon: "user",
+        label: t("profile.menuAccountType"),
+        onPress: () => {
+          setShowMenu(false);
+          setNeedsAccountType(true);
         },
       },
       {
         key: "settings",
         icon: "settings",
         label: t("profile.menuSettings"),
+        onPress: () => {
+          setShowMenu(false);
+          router.push("/settings");
+        },
+      },
+      {
+        key: "help",
+        icon: "help-circle",
+        label: t("profile.menuHelp"),
         onPress: () => {
           setShowMenu(false);
           router.push("/settings");

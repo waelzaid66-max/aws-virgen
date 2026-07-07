@@ -123,7 +123,7 @@ health smoke (محلي)    → PASS بعد موجة 1 (قبل Clerk)
 
 | # | المهمة | لماذا مؤجّل |
 |---|--------|-------------|
-| 5 | شاشة **تعديل إعلان** كاملة على الموبايل | نطاق منتج — حالياً status فقط |
+| 5 | شاشة **تعديل إعلان** على الموبايل (حقول أساسية) | ✅ موجة R1 | عنوان/وصف/موقع/سعر — `WAVE-R1-FURNISHED-RENTAL-HUB.md` |
 | 6 | **بالقرب مني** `near_lat` / `radius_km` على الموبايل | ✅ موجة 5 | OpenAPI + FilterSheet + map parity |
 | 7 | فلترة نظام الإيجار **حسب دولة السوق** على البحث | ✅ موجة 4 | `lib/searchTaxonomy.ts` |
 | 8 | المزيد من `property_type` في المحركات | facet-gated فقط عند وجود مخزون |
@@ -149,9 +149,9 @@ health smoke (محلي)    → PASS بعد موجة 1 (قبل Clerk)
 | موجة | المحتوى | خطر على المجاني |
 |------|---------|------------------|
 | **B0** | جرد كامل — `WALLET-BILLING-FINANCE-AUDIT.md` | صفر |
-| **B1** | فواتير UI (قراءة)، إيراد أدمن من ledger، OpenAPI payments | صفر |
-| **B2** | مركز مالي Hub + فلاتر معاملات + سجل promo | صفر |
-| **B3** | إشعارات وإيميل فوترة | منخفض |
+| **B1** | ✅ فواتير UI (قراءة)، إيراد أدمن من ledger، OpenAPI payments — `WAVE-B1-BILLING-UI.md` | صفر |
+| **B2** | ✅ مركز مالي Hub + فلاتر معاملات + سجل promo — `WAVE-B2-FINANCE-HUB.md` | صفر |
+| **B3** | ✅ إشعارات وإيميل فوترة — `WAVE-B3-BILLING-NOTIFICATIONS.md` | منخفض |
 | **B4** | PDF فواتير/كشوف | منخفض |
 | **B5** | تفعيل Paymob + خطط مدفوعة | **قرار إداري فقط** |
 
@@ -178,6 +178,7 @@ audit/
 │   ├── WAVE-3-SEARCH-RE-EAS.md
 │   ├── WAVE-4-SEARCH-TAXONOMY.md
 │   ├── WAVE-5-SEARCH-GEO-MAPS.md
+│   ├── WAVE-R1-FURNISHED-RENTAL-HUB.md
 │   └── WALLET-BILLING-FINANCE-AUDIT.md
 ├── rc1/
 │   ├── BANCO-STORE-RELEASE-CANDIDATE-REPORT.md

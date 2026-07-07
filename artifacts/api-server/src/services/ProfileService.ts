@@ -34,9 +34,12 @@ export interface NotificationPreferenceDTO {
     | "price_drop"
     | "comment"
     | "review"
-    // Additive (Task #40): B2B investment interest + global-supply response.
     | "investment"
-    | "global_supply";
+    | "global_supply"
+    | "booking"
+    | "payment_success"
+    | "payment_failed"
+    | "subscription_expiring";
   in_app: boolean;
   email: boolean;
 }

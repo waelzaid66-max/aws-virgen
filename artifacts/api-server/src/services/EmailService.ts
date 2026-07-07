@@ -27,7 +27,17 @@ export type NotificationCategory =
   | "system"
   | "rfq"
   | "new_match"
-  | "price_drop";
+  | "price_drop"
+  | "payment_success"
+  | "payment_failed"
+  | "subscription_expiring";
+
+export type BillingEmailCategory = Extract<
+  NotificationCategory,
+  "payment_success" | "payment_failed" | "subscription_expiring"
+>;
+
+export type BillingReceiptKind = "wallet_topup" | "subscription_charge" | "lead_charge";
 
 export interface EmailMessage {
   to: string;
@@ -355,6 +365,165 @@ export async function sendWeeklyReportEmail(args: {
   await transport.send({
     to: args.to,
     subject: ar ? "BANCO — ملخصك الأسبوعي" : "BANCO — Your weekly summary",
+    html,
+    text,
+  });
+}
+
+function receiptKindLabel(kind: BillingReceiptKind, ar: boolean): string {
+  switch (kind) {
+    case "wallet_topup":
+      return ar ? "شحن المحفظة" : "Wallet top-up";
+    case "subscription_charge":
+      return ar ? "اشتراك" : "Subscription";
+    case "lead_charge":
+      return ar ? "رسوم مهتم" : "Lead charge";
+  }
+}
+
+/**
+ * Receipt email after a successful wallet/subscription/lead ledger entry.
+ * All amounts are real values from the transactions table.
+ */
+export async function sendBillingReceiptEmail(args: {
+  to: string;
+  lang?: EmailLang;
+  name: string;
+  kind: BillingReceiptKind;
+  amount: string;
+  balanceAfter: string;
+  description?: string;
+  invoiceNumber?: string | null;
+  planName?: string;
+}): Promise<void> {
+  const lang: EmailLang = args.lang ?? "ar";
+  const ar = lang === "ar";
+  const { transport, appUrl } = await resolveEmailRuntime();
+  const cta = appUrl("/billing");
+  const kindLabel = receiptKindLabel(args.kind, ar);
+
+  const rows: TemplateRow[] = [
+    { label: ar ? "النوع" : "Type", value: kindLabel },
+    { label: ar ? "المبلغ" : "Amount", value: `${args.amount} EGP` },
+    { label: ar ? "رصيد المحفظة" : "Wallet balance", value: `${args.balanceAfter} EGP` },
+  ];
+  if (args.planName) {
+    rows.splice(1, 0, { label: ar ? "الخطة" : "Plan", value: args.planName });
+  }
+  if (args.invoiceNumber) {
+    rows.push({ label: ar ? "رقم الفاتورة" : "Invoice #", value: args.invoiceNumber });
+  }
+  if (args.description) {
+    rows.push({ label: ar ? "التفاصيل" : "Details", value: args.description });
+  }
+
+  const { html, text } = renderEmail({
+    lang,
+    preheader: ar ? "إيصال دفع من BANCO" : "Your BANCO payment receipt",
+    heading: ar ? "إيصال الدفع" : "Payment receipt",
+    intro: ar
+      ? `يا ${args.name}، تم تسجيل عملية ${kindLabel} على حسابك.`
+      : `Hi ${args.name}, your ${kindLabel.toLowerCase()} was recorded on your account.`,
+    rows,
+    cta: cta ? { label: ar ? "افتح المركز المالي" : "Open finance hub", url: cta } : undefined,
+    footer: ar
+      ? "إشعار فوترة تلقائي. تقدر تدير إشعارات الدفع من الإعدادات."
+      : "Automated billing notice. Manage payment alerts in Settings.",
+  });
+
+  await transport.send({
+    to: args.to,
+    subject: ar ? "BANCO — إيصال دفع" : "BANCO — Payment receipt",
+    html,
+    text,
+  });
+}
+
+/** Email when a hosted checkout payment fails at the PSP. */
+export async function sendBillingFailedEmail(args: {
+  to: string;
+  lang?: EmailLang;
+  name: string;
+  amount: string;
+  method: string;
+  purpose: "wallet_topup" | "subscription";
+}): Promise<void> {
+  const lang: EmailLang = args.lang ?? "ar";
+  const ar = lang === "ar";
+  const { transport, appUrl } = await resolveEmailRuntime();
+  const cta = appUrl("/billing");
+  const purposeLabel =
+    args.purpose === "subscription"
+      ? ar
+        ? "اشتراك"
+        : "subscription"
+      : ar
+        ? "شحن المحفظة"
+        : "wallet top-up";
+
+  const { html, text } = renderEmail({
+    lang,
+    preheader: ar ? "فشل الدفع — جرّب تاني" : "Payment failed — try again",
+    heading: ar ? "لم يكتمل الدفع" : "Payment not completed",
+    intro: ar
+      ? `يا ${args.name}، عملية ${purposeLabel} (${args.amount} ج.م) لم تكتمل عبر ${args.method}.`
+      : `Hi ${args.name}, your ${purposeLabel} (${args.amount} EGP via ${args.method}) did not complete.`,
+    rows: [
+      { label: ar ? "المبلغ" : "Amount", value: `${args.amount} EGP` },
+      { label: ar ? "طريقة الدفع" : "Method", value: args.method },
+    ],
+    cta: cta ? { label: ar ? "جرّب مرة أخرى" : "Try again", url: cta } : undefined,
+    footer: ar
+      ? "لم يتم خصم أي مبلغ. تقدر تدير إشعارات الدفع من الإعدادات."
+      : "No charge was made. Manage payment alerts in Settings.",
+  });
+
+  await transport.send({
+    to: args.to,
+    subject: ar ? "BANCO — فشل الدفع" : "BANCO — Payment failed",
+    html,
+    text,
+  });
+}
+
+/** Reminder before a paid subscription period ends. */
+export async function sendSubscriptionExpiringEmail(args: {
+  to: string;
+  lang?: EmailLang;
+  name: string;
+  planName: string;
+  expiresAt: string;
+  daysLeft: number;
+}): Promise<void> {
+  const lang: EmailLang = args.lang ?? "ar";
+  const ar = lang === "ar";
+  const { transport, appUrl } = await resolveEmailRuntime();
+  const cta = appUrl("/plans");
+
+  const expiresLabel = new Date(args.expiresAt).toLocaleDateString(ar ? "ar-EG" : "en-EG", {
+    dateStyle: "medium",
+  });
+
+  const { html, text } = renderEmail({
+    lang,
+    preheader: ar ? "اشتراكك ينتهي قريباً" : "Your subscription is ending soon",
+    heading: ar ? "اشتراكك ينتهي قريباً" : "Subscription ending soon",
+    intro: ar
+      ? `يا ${args.name}، اشتراك ${args.planName} ينتهي خلال ${args.daysLeft} يوم.`
+      : `Hi ${args.name}, your ${args.planName} plan ends in ${args.daysLeft} day(s).`,
+    rows: [
+      { label: ar ? "الخطة" : "Plan", value: args.planName },
+      { label: ar ? "تاريخ الانتهاء" : "Expires", value: expiresLabel },
+    ],
+    cta: cta ? { label: ar ? "جدّد الاشتراك" : "Renew plan", url: cta } : undefined,
+    footer: ar
+      ? "تذكير تلقائي قبل انتهاء الاشتراك. تقدر تدير الإشعارات من الإعدادات."
+      : "Automated renewal reminder. Manage alerts in Settings.",
+  });
+
+  await transport.send({
+    to: args.to,
+    subject: ar ? "BANCO — اشتراكك ينتهي قريباً" : "BANCO — Subscription ending soon",
     html,
     text,
   });

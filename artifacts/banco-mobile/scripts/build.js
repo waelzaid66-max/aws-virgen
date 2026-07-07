@@ -67,10 +67,11 @@ function getDeploymentDomain() {
     return stripProtocol(process.env.EXPO_PUBLIC_DOMAIN);
   }
 
-  console.error(
-    "ERROR: No deployment domain found. Set REPLIT_INTERNAL_APP_DOMAIN, REPLIT_DEV_DOMAIN, or EXPO_PUBLIC_DOMAIN",
+  // CI / local / monorepo builds: static export without a Replit hostname.
+  console.warn(
+    "WARN: No deployment domain set (REPLIT_* / EXPO_PUBLIC_DOMAIN); using localhost for static export",
   );
-  process.exit(1);
+  return "localhost";
 }
 
 function prepareDirectories(timestamp) {
@@ -152,10 +153,9 @@ async function startMetro(expoPublicDomain, expoPublicReplId) {
   }
 
   metroProcess = spawn(
-    "pnpm",
+    process.execPath,
     [
-      "exec",
-      "expo",
+      path.join(projectRoot, "node_modules", "expo", "bin", "cli"),
       "start",
       "--no-dev",
       "--minify",
@@ -182,7 +182,8 @@ async function startMetro(expoPublicDomain, expoPublicReplId) {
     });
   }
 
-  for (let i = 0; i < 60; i++) {
+  const metroReadySeconds = Number(process.env.METRO_READY_TIMEOUT_SEC ?? "180");
+  for (let i = 0; i < metroReadySeconds; i++) {
     await new Promise((resolve) => setTimeout(resolve, 1000));
 
     const healthy = await checkMetroHealth();
@@ -510,10 +511,52 @@ function updateManifests(manifests, timestamp, baseUrl, assetsByHash) {
   console.log("Manifests updated");
 }
 
+function isReplitDeployTarget() {
+  return Boolean(
+    process.env.REPLIT_INTERNAL_APP_DOMAIN ||
+      process.env.REPLIT_DEV_DOMAIN ||
+      process.env.EXPO_PUBLIC_DOMAIN,
+  );
+}
+
+async function runLightweightBuild() {
+  console.log(
+    "Mobile build: lightweight mode (no Replit domain). Validating Expo bundle via export…",
+  );
+  const outDir = path.join(projectRoot, "dist");
+  if (fs.existsSync(outDir)) {
+    fs.rmSync(outDir, { recursive: true, force: true });
+  }
+
+  const { spawnSync } = require("child_process");
+  const result = spawnSync(
+    process.execPath,
+    [
+      path.join(projectRoot, "node_modules", "expo", "bin", "cli"),
+      "export",
+      "--output-dir",
+      outDir,
+      "--platform",
+      "web",
+    ],
+    { cwd: projectRoot, stdio: "inherit", env: process.env },
+  );
+
+  if (result.status !== 0) {
+    exitWithError("Expo export failed — mobile bundle did not compile.");
+  }
+  console.log("Mobile lightweight build OK:", outDir);
+}
+
 async function main() {
   console.log("Building static Expo Go deployment...");
 
   setupSignalHandlers();
+
+  if (!isReplitDeployTarget() && process.env.BANCO_MOBILE_FULL_STATIC !== "1") {
+    await runLightweightBuild();
+    process.exit(0);
+  }
 
   const domain = getDeploymentDomain();
   const expoPublicReplId = getExpoPublicReplId();

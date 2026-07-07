@@ -801,15 +801,6 @@ export const BumpListingResponse = zod.object({
 /**
  * @summary Full-text + filter search with Arabic NLP
  */
-export const searchListingsQueryNearLatMin = -90;
-export const searchListingsQueryNearLatMax = 90;
-
-export const searchListingsQueryNearLngMin = -180;
-export const searchListingsQueryNearLngMax = 180;
-
-export const searchListingsQueryRadiusKmMin = 0.1;
-export const searchListingsQueryRadiusKmMax = 500;
-
 export const searchListingsQuerySortDefault = `recommended`;
 export const searchListingsQueryLimitDefault = 20;
 
@@ -838,9 +829,6 @@ export const SearchListingsQueryParams = zod.object({
   "max_year": zod.coerce.number().optional().describe('Maximum car model year (numeric specs.year).'),
   "industry": zod.enum(['food', 'beverage', 'plastic', 'textile', 'pharmaceutical', 'chemical', 'engineering', 'other']).optional().describe('Filter industrial listings by industry (listing_attributes.industry).'),
   "origin_type": zod.enum(['local', 'imported']).optional().describe('Filter industrial listings by origin (listing_attributes.origin_type).'),
-  "near_lat": zod.coerce.number().min(searchListingsQueryNearLatMin).max(searchListingsQueryNearLatMax).optional().describe('Near-me anchor latitude (WGS84). Must be sent together with near_lng and radius_km. Filters to listings whose effective coordinate (own override or area centroid) lies within the radius.'),
-  "near_lng": zod.coerce.number().min(searchListingsQueryNearLngMin).max(searchListingsQueryNearLngMax).optional().describe('Near-me anchor longitude (WGS84). See near_lat.'),
-  "radius_km": zod.coerce.number().min(searchListingsQueryRadiusKmMin).max(searchListingsQueryRadiusKmMax).optional().describe('Search radius in kilometres (0.1–500). See near_lat.'),
   "sort": zod.enum(['recommended', 'newest', 'price_asc', 'price_desc', 'popular']).default(searchListingsQuerySortDefault).describe('Result ordering. recommended (default) and newest use the created_at keyset cursor; price_asc, price_desc and popular switch to offset pagination (their cursor is an opaque numeric offset). popular ranks by lifetime interactions (views + clicks).'),
   "cursor": zod.coerce.string().optional(),
   "limit": zod.coerce.number().default(searchListingsQueryLimitDefault)
@@ -888,17 +876,6 @@ export const SearchListingsResponse = zod.object({
  * The SAME filters as /v1/search (so the map and list stay consistent), within a viewport bounding box, aggregated into a zoom-dependent grid. Returns one cluster per occupied cell (centroid + count); listing_id is set only when a cell holds exactly one listing (a tappable pin). offer_type=rent powers the Booking-style rental map for real-estate, land and factories.
  * @summary Server-side clustered listing pins for a map viewport
  */
-export const getMapClustersQueryNearLatMin = -90;
-export const getMapClustersQueryNearLatMax = 90;
-
-export const getMapClustersQueryNearLngMin = -180;
-export const getMapClustersQueryNearLngMax = 180;
-
-export const getMapClustersQueryRadiusKmMin = 0.1;
-export const getMapClustersQueryRadiusKmMax = 500;
-
-
-
 export const GetMapClustersQueryParams = zod.object({
   "min_lat": zod.coerce.number(),
   "max_lat": zod.coerce.number(),
@@ -928,10 +905,7 @@ export const GetMapClustersQueryParams = zod.object({
   "min_year": zod.coerce.number().optional(),
   "max_year": zod.coerce.number().optional(),
   "industry": zod.enum(['food', 'beverage', 'plastic', 'textile', 'pharmaceutical', 'chemical', 'engineering', 'other']).optional(),
-  "origin_type": zod.enum(['local', 'imported']).optional(),
-  "near_lat": zod.coerce.number().min(getMapClustersQueryNearLatMin).max(getMapClustersQueryNearLatMax).optional().describe('Near-me anchor latitude — same semantics as GET \/v1\/search.'),
-  "near_lng": zod.coerce.number().min(getMapClustersQueryNearLngMin).max(getMapClustersQueryNearLngMax).optional().describe('Near-me anchor longitude — same semantics as GET \/v1\/search.'),
-  "radius_km": zod.coerce.number().min(getMapClustersQueryRadiusKmMin).max(getMapClustersQueryRadiusKmMax).optional().describe('Search radius in km (0.1–500) — same semantics as GET \/v1\/search.')
+  "origin_type": zod.enum(['local', 'imported']).optional()
 })
 
 export const GetMapClustersResponse = zod.object({
@@ -1426,7 +1400,7 @@ export const MarkConversationReadResponse = zod.object({
 export const ListNotificationsResponse = zod.object({
   "data": zod.array(zod.object({
   "id": zod.string(),
-  "type": zod.enum(['message', 'lead', 'system', 'rfq', 'new_match', 'price_drop', 'comment', 'review', 'investment', 'global_supply', 'booking']),
+  "type": zod.enum(['message', 'lead', 'system', 'rfq', 'new_match', 'price_drop', 'comment', 'review', 'investment', 'global_supply', 'booking', 'payment_success', 'payment_failed', 'subscription_expiring']),
   "title": zod.string(),
   "body": zod.string(),
   "data": zod.record(zod.string(), zod.unknown()).nullish(),
@@ -1719,7 +1693,7 @@ export const SetMySocialLinksResponse = zod.object({
  */
 export const GetMyNotificationPreferencesResponse = zod.object({
   "data": zod.array(zod.object({
-  "type": zod.enum(['message', 'lead', 'system', 'rfq', 'new_match', 'price_drop', 'comment', 'review', 'investment', 'global_supply', 'booking']),
+  "type": zod.enum(['message', 'lead', 'system', 'rfq', 'new_match', 'price_drop', 'comment', 'review', 'investment', 'global_supply', 'booking', 'payment_success', 'payment_failed', 'subscription_expiring']),
   "in_app": zod.boolean(),
   "email": zod.boolean()
 }).describe('Per-category notification preference. Absence of a row = enabled (Task')),
@@ -1740,7 +1714,7 @@ export const GetMyNotificationPreferencesResponse = zod.object({
  */
 export const SetMyNotificationPreferencesBody = zod.object({
   "preferences": zod.array(zod.object({
-  "type": zod.enum(['message', 'lead', 'system', 'rfq', 'new_match', 'price_drop', 'comment', 'review', 'investment', 'global_supply', 'booking']),
+  "type": zod.enum(['message', 'lead', 'system', 'rfq', 'new_match', 'price_drop', 'comment', 'review', 'investment', 'global_supply', 'booking', 'payment_success', 'payment_failed', 'subscription_expiring']),
   "in_app": zod.boolean(),
   "email": zod.boolean()
 }).describe('Per-category notification preference. Absence of a row = enabled (Task'))
@@ -1748,7 +1722,7 @@ export const SetMyNotificationPreferencesBody = zod.object({
 
 export const SetMyNotificationPreferencesResponse = zod.object({
   "data": zod.array(zod.object({
-  "type": zod.enum(['message', 'lead', 'system', 'rfq', 'new_match', 'price_drop', 'comment', 'review', 'investment', 'global_supply', 'booking']),
+  "type": zod.enum(['message', 'lead', 'system', 'rfq', 'new_match', 'price_drop', 'comment', 'review', 'investment', 'global_supply', 'booking', 'payment_success', 'payment_failed', 'subscription_expiring']),
   "in_app": zod.boolean(),
   "email": zod.boolean()
 }).describe('Per-category notification preference. Absence of a row = enabled (Task')),

@@ -65,6 +65,9 @@ export async function listTransactionsHandler(req: Request, res: Response) {
     const page = await listTransactions(req.dbUserId!, {
       limit: query.limit,
       cursor: query.cursor,
+      from: query.from,
+      to: query.to,
+      type: query.type,
     });
     const validated = validateResponse(WalletTransactionSchema.array(), page.items);
     return res.json(

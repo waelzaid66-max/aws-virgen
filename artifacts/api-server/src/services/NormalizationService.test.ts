@@ -35,6 +35,9 @@ describe("detectSpamKeywords", () => {
 
   it("returns nothing for clean copy", () => {
     expect(detectSpamKeywords("Toyota Corolla 2020 clean title")).toEqual([]);
+    expect(
+      detectSpamKeywords("JRNYSELL_550e8400-e29b-41d4-a716-446655440000 sedan for sale"),
+    ).toEqual([]);
   });
 });
 

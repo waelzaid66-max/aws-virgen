@@ -26,15 +26,9 @@ import {
 } from "@/components/CategoryTabs";
 import { brandLabel, type CarBrand } from "@/constants/cars";
 import { engineByKey, type EngineDef } from "@/constants/engines";
-import { INDUSTRY_TYPES } from "@/constants/listingCreateTaxonomy";
+import { INDUSTRY_TYPES, RENTAL_TERMS } from "@/constants/listingCreateTaxonomy";
 import { useI18n } from "@/context/LanguageContext";
 import { useColors } from "@/hooks/useColors";
-import {
-  MARKET_COUNTRIES,
-  marketCountryLabel,
-  rentalTermsForSearch,
-  sanitizeRentalTermForMarket,
-} from "@/lib/searchTaxonomy";
 import type {
   PaymentType,
   SearchCriteria,
@@ -93,8 +87,6 @@ interface FilterSheetProps {
   onUpdate: (partial: Partial<SearchCriteria>) => void;
   onOpenLocationPicker: () => void;
   onClearLocation: () => void;
-  onToggleNearMe: () => void;
-  nearMeLoading?: boolean;
   onClearAll: () => void;
 }
 
@@ -123,8 +115,6 @@ export function FilterSheet({
   onUpdate,
   onOpenLocationPicker,
   onClearLocation,
-  onToggleNearMe,
-  nearMeLoading = false,
   onClearAll,
 }: FilterSheetProps) {
   const colors = useColors();
@@ -165,7 +155,6 @@ export function FilterSheet({
   const selectedEngine = engineByKey(criteria.category, criteria.engineKey);
   const showRentalTerms =
     isRealEstate && selectedEngine?.params.offer_type !== "sale";
-  const rentalTermOptions = rentalTermsForSearch(criteria.marketCountry);
 
   return (
     <Modal
@@ -445,29 +434,12 @@ export function FilterSheet({
                 while the sale (تمليك) engine chip is active (rent-only content). */}
             {showRentalTerms && (
               <>
-                <SectionLabel text={t("search.marketCountry")} align={textAlign} colors={colors} />
-                <ToggleChipRow
-                  options={MARKET_COUNTRIES.map((m) => m.value)}
-                  selected={criteria.marketCountry}
-                  labelFor={(v) => marketCountryLabel(v, isRTL)}
-                  onToggle={(v) => {
-                    if (!v) return;
-                    const rentalTerm = sanitizeRentalTermForMarket(
-                      criteria.rentalTerm,
-                      v,
-                    );
-                    onUpdate({ marketCountry: v, rentalTerm });
-                  }}
-                  rowDir={rowDir}
-                  colors={colors}
-                  testPrefix="filter-market"
-                />
                 <SectionLabel text={t("create.fields.rentalTerm")} align={textAlign} colors={colors} />
                 <ToggleChipRow
-                  options={rentalTermOptions.map((r) => r.value)}
+                  options={RENTAL_TERMS.map((r) => r.value)}
                   selected={criteria.rentalTerm}
                   labelFor={(v) => {
-                    const def = rentalTermOptions.find((r) => r.value === v);
+                    const def = RENTAL_TERMS.find((r) => r.value === v);
                     return def ? (isRTL ? def.ar : def.en) : v;
                   }}
                   onToggle={(v) => onUpdate({ rentalTerm: v })}
@@ -554,44 +526,6 @@ export function FilterSheet({
                   color={colors.mutedForeground}
                 />
               )}
-            </Pressable>
-
-            <Pressable
-              onPress={onToggleNearMe}
-              disabled={nearMeLoading}
-              style={[
-                styles.nearMeChip,
-                {
-                  backgroundColor: criteria.nearMeEnabled
-                    ? colors.primary
-                    : colors.secondary,
-                  borderColor: criteria.nearMeEnabled
-                    ? colors.primary
-                    : colors.border,
-                  flexDirection: rowDir,
-                  opacity: nearMeLoading ? 0.6 : 1,
-                },
-              ]}
-              testID="filter-near-me"
-            >
-              <Ionicons
-                name="navigate-outline"
-                size={16}
-                color={
-                  criteria.nearMeEnabled
-                    ? colors.primaryForeground
-                    : colors.mutedForeground
-                }
-              />
-              <AppText
-                style={{
-                  color: criteria.nearMeEnabled
-                    ? colors.primaryForeground
-                    : colors.foreground,
-                }}
-              >
-                {nearMeLoading ? "…" : t("search.nearMe")}
-              </AppText>
             </Pressable>
 
             {/* Price */}
@@ -851,16 +785,6 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     fontFamily: "Inter_400Regular",
-  },
-  nearMeChip: {
-    alignItems: "center",
-    gap: 8,
-    marginTop: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 12,
-    borderWidth: 1,
-    alignSelf: "flex-start",
   },
   footer: {
     paddingHorizontal: 16,

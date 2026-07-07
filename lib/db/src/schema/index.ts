@@ -1131,6 +1131,10 @@ export const notificationTypeEnum = pgEnum("notification_type", [
   // Additive: a new short-stay booking request on the host's furnished/daily
   // listing (the hotel model). Deep-links to the bookings inbox (host view).
   "booking",
+  // Billing / wallet lifecycle (Wave B3): settlement, failure, subscription expiry.
+  "payment_success",
+  "payment_failed",
+  "subscription_expiring",
 ]);
 
 // In-app notification feed. `data` holds typed deep-link ids (conversation_id,

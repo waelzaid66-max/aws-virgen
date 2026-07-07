@@ -15,7 +15,6 @@ import {
   ScrollView,
   StyleSheet,
   View,
-  Alert,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, {
@@ -54,13 +53,7 @@ import {
   type CarBrand,
 } from "@/constants/cars";
 import { labelForValue } from "@/constants/locations";
-import {
-  DEFAULT_MARKET_COUNTRY,
-  MARKET_COUNTRIES,
-  marketCountryLabel,
-  rentalTermsForSearch,
-  sanitizeRentalTermForMarket,
-} from "@/lib/searchTaxonomy";
+import { RENTAL_TERMS } from "@/constants/listingCreateTaxonomy";
 import { engineByKey, enginesForCategory } from "@/constants/engines";
 import { useI18n } from "@/context/LanguageContext";
 import { SavedSearch, useSession } from "@/context/SessionContext";
@@ -74,10 +67,6 @@ import {
   type PaymentType,
   type SearchSort,
 } from "@/lib/searchParams";
-import {
-  DEFAULT_NEAR_RADIUS_KM,
-  requestNearMeCoords,
-} from "@/lib/nearMe";
 
 type FilterCategory = Category;
 
@@ -108,7 +97,6 @@ const CLEAR_ATTRS: Partial<SearchCriteria> = {
   originType: null,
   industrialType: "all",
   rentalTerm: null,
-  marketCountry: DEFAULT_MARKET_COUNTRY,
 };
 
 // The category-independent filters, reset by the sheet's "Clear all" (combined
@@ -120,10 +108,6 @@ const CLEAR_FILTERS: Partial<SearchCriteria> = {
   maxPrice: "",
   location: "",
   paymentType: "any",
-  nearMeEnabled: false,
-  nearLat: null,
-  nearLng: null,
-  radiusKm: DEFAULT_NEAR_RADIUS_KM,
 };
 
 // Valid sort keys arriving via navigation (e.g. the Home "Sort" launcher). Any
@@ -325,7 +309,6 @@ export default function SearchScreen() {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [locationPickerOpen, setLocationPickerOpen] = useState(false);
-  const [nearMeLoading, setNearMeLoading] = useState(false);
   const [brandValue, setBrandValue] = useState<string | null>(null);
   const [carPickerOpen, setCarPickerOpen] = useState(false);
 
@@ -523,20 +506,7 @@ export default function SearchScreen() {
     const engine = engineByKey(criteria.category, key);
     const patch: Partial<SearchCriteria> = { engineKey: key };
     if (engine?.params.offer_type === "sale") patch.rentalTerm = null;
-    if (criteria.category === "car") {
-      if (engine?.params.fuel_type) patch.fuelType = engine.params.fuel_type;
-      if (engine?.params.transmission)
-        patch.transmission = engine.params.transmission;
-    }
     update(patch);
-  };
-
-  const selectMarketCountry = (code: string) => {
-    const rentalTerm = sanitizeRentalTermForMarket(
-      criteria.rentalTerm,
-      code,
-    );
-    update({ marketCountry: code, rentalTerm });
   };
 
   const selectIndustrialType = (type: IndustrialType) =>
@@ -558,11 +528,6 @@ export default function SearchScreen() {
     engineByKey(criteria.category, criteria.engineKey)?.params.offer_type !==
       "sale";
 
-  const rentalTermOptions = useMemo(
-    () => rentalTermsForSearch(criteria.marketCountry),
-    [criteria.marketCountry],
-  );
-
   // Quick brand chip inside the sheet (closes the sheet via browseBrand).
   const browseBrandChip = useCallback(
     (b: CarBrand) => browseBrand(b, null),
@@ -574,26 +539,6 @@ export default function SearchScreen() {
     setBrandValue(null);
     update({ ...CLEAR_ATTRS, ...CLEAR_FILTERS });
   }, [update]);
-
-  const handleToggleNearMe = useCallback(async () => {
-    if (criteria.nearMeEnabled) {
-      update({ nearMeEnabled: false, nearLat: null, nearLng: null });
-      return;
-    }
-    setNearMeLoading(true);
-    const coords = await requestNearMeCoords();
-    setNearMeLoading(false);
-    if (coords) {
-      update({
-        nearMeEnabled: true,
-        nearLat: coords.lat,
-        nearLng: coords.lng,
-        radiusKm: DEFAULT_NEAR_RADIUS_KM,
-      });
-    } else {
-      Alert.alert(t("common.error"), t("search.nearMeDenied"));
-    }
-  }, [criteria.nearMeEnabled, update, t]);
 
   const handleSaveSearch = () => {
     saveSearch({
@@ -610,7 +555,6 @@ export default function SearchScreen() {
     criteria.category !== "all",
     !!criteria.minPrice || !!criteria.maxPrice,
     !!criteria.location,
-    criteria.nearMeEnabled,
     criteria.paymentType !== "any",
   ].filter(Boolean).length;
 
@@ -876,47 +820,7 @@ export default function SearchScreen() {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={[styles.originRow, { flexDirection: rowDir }]}
         >
-          {MARKET_COUNTRIES.map((m) => {
-            const active = criteria.marketCountry === m.value;
-            return (
-              <Pressable
-                key={m.value}
-                onPress={() => {
-                  playSound("tap");
-                  selectMarketCountry(m.value);
-                }}
-                style={[
-                  styles.originChip,
-                  {
-                    backgroundColor: active ? colors.primary : colors.secondary,
-                  },
-                ]}
-                testID={`search-market-${m.value}`}
-              >
-                <AppText
-                  style={[
-                    styles.originChipText,
-                    {
-                      color: active
-                        ? colors.primaryForeground
-                        : colors.mutedForeground,
-                    },
-                  ]}
-                >
-                  {marketCountryLabel(m.value, isRTL)}
-                </AppText>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
-      ) : null}
-      {showRentalTerms ? (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={[styles.originRow, { flexDirection: rowDir }]}
-        >
-          {rentalTermOptions.map((r) => {
+          {RENTAL_TERMS.map((r) => {
             const active = criteria.rentalTerm === r.value;
             return (
               <Pressable
@@ -983,8 +887,6 @@ export default function SearchScreen() {
         onUpdate={update}
         onOpenLocationPicker={() => setLocationPickerOpen(true)}
         onClearLocation={() => update({ location: "" })}
-        onToggleNearMe={() => void handleToggleNearMe()}
-        nearMeLoading={nearMeLoading}
         onClearAll={clearAllFilters}
       />
 

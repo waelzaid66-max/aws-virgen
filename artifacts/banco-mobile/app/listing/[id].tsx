@@ -6,7 +6,7 @@ import {
 } from "@/components/icons";
 import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
-import { router, useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams, type Href } from "expo-router";
 import {
   getListing,
   getSimilarListings,
@@ -1081,6 +1081,26 @@ export default function ListingDetailScreen() {
           {isOwner ? (
             isSold ? null : (
               <View style={{ gap: 10 }}>
+                <Pressable
+                  onPress={() => router.push(`/listings/edit/${listing.id}` as Href)}
+                  style={[
+                    styles.offerBtn,
+                    {
+                      flexDirection: rowDir,
+                      borderColor: colors.border,
+                      borderRadius: colors.radius,
+                      backgroundColor: colors.card,
+                    },
+                  ]}
+                  testID="owner-edit-listing"
+                >
+                  <Feather name="edit-2" size={18} color={colors.foreground} />
+                  <AppText
+                    style={[styles.offerBtnText, { color: colors.foreground }]}
+                  >
+                    {t("mine.edit")}
+                  </AppText>
+                </Pressable>
                 <Pressable
                   onPress={handleMarkSold}
                   disabled={marking}

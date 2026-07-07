@@ -8,7 +8,7 @@ import {
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import {
   ActivityIndicator,
@@ -58,7 +58,10 @@ export default function BookingsScreen() {
   const rowDir = isRTL ? "row-reverse" : "row";
   const topPad = Platform.OS === "web" ? 67 : insets.top;
 
-  const [role, setRole] = useState<ListBookingsRole>("guest");
+  const { role: roleParam } = useLocalSearchParams<{ role?: string }>();
+  const [role, setRole] = useState<ListBookingsRole>(
+    roleParam === "host" ? "host" : "guest",
+  );
   const { data, isLoading, isError, refetch, isRefetching } = useListBookings(
     { role },
     { query: { queryKey: getListBookingsQueryKey({ role }) } },

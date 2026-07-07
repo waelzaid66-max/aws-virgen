@@ -4,6 +4,7 @@ import { withAdvisoryLock } from "../lib/advisoryLock";
 import { archiveOldListings } from "./archiveListings";
 import { generateDealerPerformance } from "./dealerPerformance";
 import { expireSubscriptions } from "./subscriptionExpiry";
+import { remindSubscriptionsExpiringSoon } from "./subscriptionExpiringReminders";
 import { sendWeeklyReports } from "./weeklyReports";
 import { backfillStaffRoles } from "./backfillStaffRoles";
 import {
@@ -16,6 +17,7 @@ import {
 const ARCHIVE_LOCK_KEY = 48150001;
 const PERFORMANCE_LOCK_KEY = 48150002;
 const SUBSCRIPTION_LOCK_KEY = 48150003;
+const SUBSCRIPTION_REMINDER_LOCK_KEY = 48150007;
 const WEEKLY_REPORT_LOCK_KEY = 48150004;
 const STAFF_ROLE_BACKFILL_LOCK_KEY = 48150005;
 // PROMO_AD_CREDIT_LOCK_KEY (48150006) is owned by PromoAdCreditService so the
@@ -57,6 +59,19 @@ export function startScheduledJobs(): void {
     "0 2 * * *",
     () => {
       void runJob("expire-subscriptions", SUBSCRIPTION_LOCK_KEY, expireSubscriptions);
+    },
+    { timezone: TIMEZONE },
+  );
+
+  // Daily at 09:00 — remind users before paid subscriptions lapse.
+  cron.schedule(
+    "0 9 * * *",
+    () => {
+      void runJob(
+        "subscription-expiring-reminders",
+        SUBSCRIPTION_REMINDER_LOCK_KEY,
+        remindSubscriptionsExpiringSoon,
+      );
     },
     { timezone: TIMEZONE },
   );

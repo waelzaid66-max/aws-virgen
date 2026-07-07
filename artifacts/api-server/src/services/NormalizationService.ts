@@ -579,6 +579,10 @@ const SPAM_PHRASES = [
   "فرصة استثمار",
 ];
 
+/** RFC-4122 UUIDs in titles (e.g. test tokens) must not trip phone stuffing. */
+const UUID_IN_TEXT_RE =
+  /[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/gi;
+
 /**
  * Scans title/description for spam signals: known spam phrases, embedded URLs,
  * and contact-number stuffing in the title (a common way to dodge the lead
@@ -593,8 +597,11 @@ export function detectSpamKeywords(title: string, description?: string): string[
   }
   const raw = `${title} ${description ?? ""}`;
   if (/(https?:\/\/|www\.)/i.test(raw)) flags.push("contains_url");
-  // A long digit run in the title is almost always a phone number.
-  if (/\d{9,}/.test(title.replace(/\s+/g, ""))) flags.push("phone_in_title");
+  // A long digit run in the title is almost always a phone number. Strip UUIDs
+  // first — their final segment is 12 hex chars and often contains 9+ decimal
+  // digits when spaces are removed (false positive on integration-test tokens).
+  const titleSansUuid = title.replace(UUID_IN_TEXT_RE, " ");
+  if (/\d{9,}/.test(titleSansUuid.replace(/\s+/g, ""))) flags.push("phone_in_title");
   return flags;
 }
 

@@ -2,6 +2,7 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
+    globalSetup: ["./vitest.global-setup.ts"],
     environment: "node",
     include: ["src/**/*.test.ts"],
     // Production and CI run in UTC. Pin the test process to UTC too so the

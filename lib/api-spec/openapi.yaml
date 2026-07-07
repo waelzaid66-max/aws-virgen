@@ -648,7 +648,7 @@ components:
           type: string
         type:
           type: string
-          enum: [message, lead, system, rfq, new_match, price_drop, comment, review, investment, global_supply, booking]
+          enum: [message, lead, system, rfq, new_match, price_drop, comment, review, investment, global_supply, booking, payment_success, payment_failed, subscription_expiring]
         title:
           type: string
         body:
@@ -795,7 +795,7 @@ components:
       properties:
         type:
           type: string
-          enum: [message, lead, system, rfq, new_match, price_drop, comment, review, investment, global_supply, booking]
+          enum: [message, lead, system, rfq, new_match, price_drop, comment, review, investment, global_supply, booking, payment_success, payment_failed, subscription_expiring]
         in_app:
           type: boolean
         email:
@@ -4445,30 +4445,6 @@ paths:
             type: string
             enum: [local, imported]
         - in: query
-          name: near_lat
-          description: >-
-            Near-me anchor latitude (WGS84). Must be sent together with near_lng
-            and radius_km. Filters to listings whose effective coordinate (own
-            override or area centroid) lies within the radius.
-          schema:
-            type: number
-            minimum: -90
-            maximum: 90
-        - in: query
-          name: near_lng
-          description: Near-me anchor longitude (WGS84). See near_lat.
-          schema:
-            type: number
-            minimum: -180
-            maximum: 180
-        - in: query
-          name: radius_km
-          description: Search radius in kilometres (0.1–500). See near_lat.
-          schema:
-            type: number
-            minimum: 0.1
-            maximum: 500
-        - in: query
           name: sort
           description: >-
             Result ordering. recommended (default) and newest use the created_at
@@ -4613,18 +4589,6 @@ paths:
         - in: query
           name: origin_type
           schema: { type: string, enum: [local, imported] }
-        - in: query
-          name: near_lat
-          description: Near-me anchor latitude — same semantics as GET /v1/search.
-          schema: { type: number, minimum: -90, maximum: 90 }
-        - in: query
-          name: near_lng
-          description: Near-me anchor longitude — same semantics as GET /v1/search.
-          schema: { type: number, minimum: -180, maximum: 180 }
-        - in: query
-          name: radius_km
-          description: Search radius in km (0.1–500) — same semantics as GET /v1/search.
-          schema: { type: number, minimum: 0.1, maximum: 500 }
       responses:
         "200":
           description: Map clusters
@@ -6280,6 +6244,34 @@ paths:
             minimum: 1
             maximum: 50
             default: 20
+        - name: from
+          in: query
+          required: false
+          description: ISO-8601 lower bound (inclusive) on created_at
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          required: false
+          description: ISO-8601 upper bound (inclusive) on created_at
+          schema:
+            type: string
+            format: date-time
+        - name: type
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              [
+                wallet_topup,
+                boost_charge,
+                subscription_charge,
+                lead_charge,
+                refund,
+                adjustment,
+              ]
       responses:
         "200":
           description: Transaction page

@@ -18,6 +18,7 @@ import { resolveEffectivePlan, type UserRole } from "./PlanService";
 import { isInsufficientFunds, toMoney } from "../lib/billing";
 import { createNotification } from "./NotificationService";
 import { isEmailChannelEnabled, sendLeadNotificationEmail } from "./EmailService";
+import { schedulePaymentSuccess } from "./BillingNotificationService";
 
 const LEAD_ACTION_LABEL: Record<TrackLeadInput["actionType"], string> = {
   whatsapp: "WhatsApp",
@@ -247,7 +248,15 @@ export async function contactLead(input: ContactLeadInput): Promise<{ phone: str
         amountCharged: cpl,
         transactionId: charge.transactionId,
       });
-      return { leadId: lead.id, status: "charged" as const };
+      return {
+        leadId: lead.id,
+        status: "charged" as const,
+        charge: {
+          transactionId: charge.transactionId,
+          balanceAfter: charge.balanceAfter,
+          amount: cpl,
+        },
+      };
     } catch (err) {
       if (isInsufficientFunds(err)) {
         await tx.insert(leadBilling).values({
@@ -260,6 +269,17 @@ export async function contactLead(input: ContactLeadInput): Promise<{ phone: str
       throw err;
     }
   });
+
+  if (billing.status === "charged" && "charge" in billing && billing.charge) {
+    schedulePaymentSuccess({
+      userId: sellerId,
+      kind: "lead_charge",
+      amount: billing.charge.amount,
+      balanceAfter: billing.charge.balanceAfter,
+      transactionId: billing.charge.transactionId,
+      description: `Lead charge (${input.actionType})`,
+    });
+  }
 
   leadLogger.info(
     {
@@ -462,7 +482,15 @@ export async function processLead(input: TrackLeadInput): Promise<void> {
           amountCharged: cpl,
           transactionId: charge.transactionId,
         });
-        return { leadId: lead.id, status: "charged" as const };
+        return {
+          leadId: lead.id,
+          status: "charged" as const,
+          charge: {
+            transactionId: charge.transactionId,
+            balanceAfter: charge.balanceAfter,
+            amount: cpl,
+          },
+        };
       } catch (err) {
         // Can't afford the lead: record the failed charge but keep the lead.
         if (isInsufficientFunds(err)) {
@@ -476,6 +504,17 @@ export async function processLead(input: TrackLeadInput): Promise<void> {
         throw err;
       }
     });
+
+    if (billing.status === "charged" && "charge" in billing && billing.charge) {
+      schedulePaymentSuccess({
+        userId: sellerId,
+        kind: "lead_charge",
+        amount: billing.charge.amount,
+        balanceAfter: billing.charge.balanceAfter,
+        transactionId: billing.charge.transactionId,
+        description: `Lead charge (${input.actionType})`,
+      });
+    }
 
     // Durable lead business-event audit trail (money path).
     leadLogger.info(
