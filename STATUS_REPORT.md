@@ -1,8 +1,8 @@
 # BANCO Store — Completion & Status Report
 
-_Last updated: 2026-07-08 — P0/P2 plan close-out (staging scripts, GCP scaffold, ESLint, resilience tests)._
+_Last updated: 2026-07-08 — CI fix (ESLint URL global) + full verification sweep._
 
-> **Release line:** `main` — verified locally: **typecheck 0 errors (mobile + api-client)**, **API PDF/CSV unit tests passed**, **13 mobile regression tests passed** (`test:lib` + `test:icons`).
+> **Release line:** `main` — verified locally: **294 API tests passed / 3 skipped**, **20 mobile regression tests passed**, **ESLint scripts clean**, **CI 4 jobs** (build · API · lint · mobile).
 
 This is the live status of the BANCO Store monorepo (Banco Mobile · Banco Admin · Banco Market/dealer-os · API Server · shared libs). It records what is **done and verified**, the **architecture**, and the **honest remaining items** with the reason each is or isn't locally verifiable.
 
@@ -10,8 +10,9 @@ This is the live status of the BANCO Store monorepo (Banco Mobile · Banco Admin
 
 ## 1. How verification works here
 
-- **Backend (api-server):** real integration tests on a real PostgreSQL — `pnpm --filter @workspace/api-server test`. Current state: **289 passed / 3 skipped / 0 failing** (includes `ensureSchema` P0 guard).
-- **Mobile regression:** `test:icons` + `test:lib` + `test:resilience` → **19 passed** (icons + finance/routing/engines + crash/offline guards).
+- **Backend (api-server):** real integration tests on a real PostgreSQL — `pnpm --filter @workspace/api-server test`. Current state: **294 passed / 3 skipped / 0 failing** (includes `health`, `ensureSchema`, upload claims).
+- **Mobile regression:** `pnpm --filter @workspace/banco-mobile run test` → **20 passed** (icons + lib-hardening + resilience).
+- **ESLint:** `pnpm run lint` on `scripts/**` — **0 errors** (Node globals include `URL` for staging smoke).
 - **Type safety (all surfaces):** `pnpm -r --if-present run typecheck` → **0 errors across 7 packages** (api-server, banco-mobile, admin-os, dealer-os, landing, mockup-sandbox, scripts).
 - **API contract:** `lib/api-spec/openapi.yaml` is the source of truth → `orval` regenerates the typed client (`lib/api-client-react`) + zod (`lib/api-zod`). Generated diffs this session were **purely additive (0 deletions)**.
 - **Build:** runs on CI (Linux). Locally on Windows the esbuild native binary differs, so **typecheck is the local proxy** for compilation.
@@ -38,7 +39,7 @@ This is the live status of the BANCO Store monorepo (Banco Mobile · Banco Admin
 | **Search engines P1-8** | Ten facet-gated `property_type` chips (duplex, penthouse, studio, townhouse, chalet, office, shop, warehouse, commercial_land) on home RE engines. | `test:lib` + i18n en/ar |
 | **Health smoke (P0)** | Automated vitest for `GET /api/healthz`, `/api/livez`, `/api/readyz` (no Clerk). | `health.test.ts` |
 | **P0 staging tooling** | `scripts/staging-p0-smoke.mjs` (upload byte-path) + `scripts/verify-upload-claims-schema.mjs`. | run on staging with secrets |
-| **P2 infra** | GCP deploy scaffold (`deploy/gcp/`), ESLint monorepo + CI job, mobile resilience tests. | `WAVE-P2-INFRA.md` |
+| **P2 infra** | GCP deploy scaffold (`deploy/gcp/`), ESLint monorepo + CI job, mobile regression CI job + `test` script, mobile resilience tests. | `WAVE-P2-INFRA.md` + Actions |
 | **Upload schema P0 (C-01)** | `ensureSchemaPatches` on boot + `ensureSchema.test.ts` proves `upload_claims` exists. | DB integration test |
 
 **Deploy hardening already in place:** `app.listen` binds the port **before** `ensureDbExtensions` (the earlier deploy failure was the port never opening because startup awaited a DB extension). Process-level `unhandledRejection`/`uncaughtException` handlers added.

@@ -42,12 +42,20 @@ test("booking notifications route hosts to /bookings?role=host", () => {
 test("payment and subscription notifications route to billing hub", () => {
   const src = fs.readFileSync(NOTIF_ROUTING, "utf8");
   assert.match(src, /payment_success/, "payment_success type must be handled");
+  assert.match(src, /payment_failed/, "payment_failed must route to billing hub");
   assert.match(src, /subscription_expiring/, "subscription_expiring must be handled");
   assert.match(
     src,
     /return\s+["']\/billing["']\s+as\s+Href/,
     "billing-related notifications must open /billing full page",
   );
+});
+
+test("rental hub is a registered stack route", () => {
+  const layout = fs.readFileSync(LAYOUT, "utf8");
+  assert.match(layout, /name="rentals\/hub"/, "rentals/hub must be in root stack");
+  const profile = fs.readFileSync(PROFILE, "utf8");
+  assert.match(profile, /\/rentals\/hub/, "profile menu must link to rental hub");
 });
 
 test("profile Payments menu opens billing hub (wallet remains linked inside)", () => {

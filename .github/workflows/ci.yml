@@ -106,3 +106,20 @@ jobs:
       - run: pnpm install --no-frozen-lockfile
       - name: Lint maintenance scripts
         run: pnpm run lint
+
+  mobile-regression:
+    name: Mobile regression (static)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --no-frozen-lockfile
+      - name: Icons + lib + resilience guards
+        run: >-
+          pnpm --filter @workspace/banco-mobile run test:icons
+          && pnpm --filter @workspace/banco-mobile run test:lib
+          && pnpm --filter @workspace/banco-mobile run test:resilience

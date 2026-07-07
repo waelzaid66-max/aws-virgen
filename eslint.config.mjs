@@ -36,6 +36,7 @@ export default tseslint.config(
         Buffer: "readonly",
         fetch: "readonly",
         setTimeout: "readonly",
+        URL: "readonly",
       },
     },
     rules: {
