@@ -87,3 +87,14 @@ test("invoice detail exposes PDF download", () => {
   assert.match(src, /downloadInvoicePdf/, "invoice detail must support PDF export");
   assert.match(src, /testID="invoice-download-pdf"/, "invoice PDF button must be testable");
 });
+
+test("real-estate engines include facet-gated property_type chips", () => {
+  const src = fs.readFileSync(path.join(APP_ROOT, "constants", "engines.ts"), "utf8");
+  for (const key of ["duplex", "penthouse", "studio", "office", "commercial_land"]) {
+    assert.match(
+      src,
+      new RegExp(`key:\\s*"${key}"[\\s\\S]*?requiresFacet:\\s*true`),
+      `${key} engine must be facet-gated`,
+    );
+  }
+});

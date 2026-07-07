@@ -82,7 +82,7 @@
 pnpm run typecheck     → PASS (7 حزم)
 api-server build       → PASS
 dealer-os vite build   → PASS
-health smoke (محلي)    → PASS بعد موجة 1 (قبل Clerk)
+health smoke (محلي)    → PASS — `health.test.ts` (healthz/livez/readyz قبل Clerk)
 ```
 
 ---
@@ -115,7 +115,7 @@ health smoke (محلي)    → PASS بعد موجة 1 (قبل Clerk)
 | # | المهمة | الحالة | ملاحظة |
 |---|--------|--------|--------|
 | 1 | دمج موجات 1–3 على `origin/main` | ✅ | @ `0eea161` |
-| 2 | CI أخضر (Typecheck & build + API tests) | ⏳ | push `ddd6cd3`+ — تحقق على GitHub Actions |
+| 2 | CI أخضر (Typecheck & build + API tests) | ⏳ | push `16ebbad`+ — تحقق على GitHub Actions |
 | 3 | `drizzle push` لجدول `upload_claims` على staging/prod | ⏳ | C-01 — `ensureSchemaPatches` + `WAVE-P0-STAGING-VALIDATION.md` |
 | 4 | smoke staging بمفاتيح Clerk + تخزين حقيقي | ⏳ | قائمة خطوات في `WAVE-P0-STAGING-VALIDATION.md` |
 
@@ -126,7 +126,7 @@ health smoke (محلي)    → PASS بعد موجة 1 (قبل Clerk)
 | 5 | شاشة **تعديل إعلان** على الموبايل (حقول أساسية) | ✅ موجة R1 | عنوان/وصف/موقع/سعر — `WAVE-R1-FURNISHED-RENTAL-HUB.md` |
 | 6 | **بالقرب مني** `near_lat` / `radius_km` على الموبايل | ✅ موجة 5 | OpenAPI + FilterSheet + map parity |
 | 7 | فلترة نظام الإيجار **حسب دولة السوق** على البحث | ✅ موجة 4 | `lib/searchTaxonomy.ts` |
-| 8 | المزيد من `property_type` في المحركات | facet-gated فقط عند وجود مخزون |
+| 8 | المزيد من `property_type` في المحركات | ✅ | duplex/penthouse/studio/townhouse/chalet/office/shop/warehouse/commercial_land — facet-gated |
 
 ### P2 — بنية ونشر
 
