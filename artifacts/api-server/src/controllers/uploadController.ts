@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import { Readable } from "stream";
-import { and, eq, like, or } from "drizzle-orm";
+import { and, eq, or, sql } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { listingMedia, listings, users } from "@workspace/db/schema";
 import { ObjectNotFoundError, UploadOwnershipError } from "../lib/objectStorage";
@@ -10,6 +10,7 @@ import {
   recordUploadClaim,
   assertCallerMayUseUpload,
   consumeUploadClaim,
+  extendUploadClaimAfterVerify,
   parseServingWildcard,
   servingWildcardToObjectPath,
 } from "../lib/uploadClaims";
@@ -81,8 +82,8 @@ async function isLegacyListingMedia(wildcardPath: string): Promise<boolean> {
       and(
         eq(listings.status, "active"),
         or(
-          like(listingMedia.url, urlSuffix, "\\"),
-          like(listingMedia.thumbnailUrl, urlSuffix, "\\")
+          sql`${listingMedia.url} LIKE ${urlSuffix} ESCAPE '\\'`,
+          sql`${listingMedia.thumbnailUrl} LIKE ${urlSuffix} ESCAPE '\\'`
         ),
         ...publicVisibilityConditions()
       )
@@ -338,6 +339,14 @@ export async function verifyUploadHandler(req: Request, res: Response): Promise<
         .json(
           errorResponse("INVALID_DATA", `${kind} exceeds the maximum allowed size of ${maxMb} MB`)
         );
+    }
+
+    const wildcard = parseServingWildcard(url);
+    if (wildcard) {
+      await extendUploadClaimAfterVerify(
+        servingWildcardToObjectPath(wildcard),
+        req.userId,
+      );
     }
 
     const result = validateResponse(VerifyUploadResultSchema, {

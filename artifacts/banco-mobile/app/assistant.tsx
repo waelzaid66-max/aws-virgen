@@ -128,7 +128,7 @@ export default function AssistantScreen() {
       if (a.category) params.category = a.category;
       if (a.max_price != null) params.maxPrice = String(a.max_price);
       if (a.has_installment) params.paymentType = "installment";
-      router.push({ pathname: "/search-results", params });
+      router.push({ pathname: "/(tabs)/search", params });
       return;
     }
     if (a.kind === "navigate" && a.screen) {

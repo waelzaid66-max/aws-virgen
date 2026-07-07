@@ -28,7 +28,13 @@
       "environment": "production",
       "android": {
         "buildType": "app-bundle"
+      },
+      "ios": {
+        "autoIncrement": true
       }
     }
+  },
+  "submit": {
+    "production": {}
   }
 }

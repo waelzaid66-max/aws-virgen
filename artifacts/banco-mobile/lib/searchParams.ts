@@ -10,6 +10,7 @@ import {
 
 import {
   type Category,
+  type IndustrialType,
   apiCategoryFor,
   industrialGroupForCategory,
 } from "@/components/CategoryTabs";
@@ -56,6 +57,8 @@ export interface SearchCriteria {
   /** Industrial attribute filters. */
   industry: SearchListingsIndustry | null;
   originType: SearchListingsOriginType | null;
+  /** Facilities/materials sub-type within the industrial group ("all" = whole group). */
+  industrialType: IndustrialType;
 }
 
 export const DEFAULT_CRITERIA: SearchCriteria = {
@@ -76,6 +79,7 @@ export const DEFAULT_CRITERIA: SearchCriteria = {
   maxYear: "",
   industry: null,
   originType: null,
+  industrialType: "all",
 };
 
 /**
@@ -101,7 +105,8 @@ export function hasActiveCriteria(c: SearchCriteria): boolean {
     !!c.minYear ||
     !!c.maxYear ||
     !!c.industry ||
-    !!c.originType
+    !!c.originType ||
+    c.industrialType !== "all"
   );
 }
 
@@ -129,6 +134,7 @@ export function criteriaKey(c: SearchCriteria): string {
     c.maxYear,
     c.industry,
     c.originType,
+    c.industrialType,
   ]);
 }
 
@@ -155,7 +161,10 @@ export function buildSearchParams(
   // split by industrial_type — filter by the whole group so paginated section
   // results never false-empty and the two groups never bleed together.
   const group = industrialGroupForCategory(c.category);
-  if (group) sp.industrial_type = group.join(",");
+  if (group) {
+    sp.industrial_type =
+      c.industrialType === "all" ? group.join(",") : c.industrialType;
+  }
 
   // Engine chip params (condition / payment_plan / property_type / compound / …).
   const engine = engineByKey(c.category, c.engineKey);

@@ -7,6 +7,12 @@ import { UploadOwnershipError } from "./objectStorage";
 /** Matches presign TTL in object storage backends (15 minutes). */
 export const UPLOAD_CLAIM_TTL_MS = 15 * 60 * 1000;
 
+/**
+ * After a successful verify, the seller may still be filling the listing form.
+ * Extend the attach window so publish does not fail with a 403 expired claim.
+ */
+export const UPLOAD_CLAIM_VERIFIED_TTL_MS = 60 * 60 * 1000;
+
 export const UPLOADS_SERVING_PREFIX = "/api/v1/uploads/objects/";
 
 /** Parse a first-party serving URL into the wildcard path segment after /objects/. */
@@ -77,4 +83,16 @@ export async function assertCallerMayUseUpload(
 /** Remove the presign claim after a successful promote (optional cleanup). */
 export async function consumeUploadClaim(objectPath: string): Promise<void> {
   await db.delete(uploadClaims).where(eq(uploadClaims.objectPath, objectPath));
+}
+
+/** Reset claim expiry after verify so slow listing drafts can still publish. */
+export async function extendUploadClaimAfterVerify(
+  objectPath: string,
+  clerkId: string,
+): Promise<void> {
+  const expiresAt = new Date(Date.now() + UPLOAD_CLAIM_VERIFIED_TTL_MS);
+  await db
+    .update(uploadClaims)
+    .set({ expiresAt })
+    .where(and(eq(uploadClaims.objectPath, objectPath), eq(uploadClaims.clerkId, clerkId)));
 }

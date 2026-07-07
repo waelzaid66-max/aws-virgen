@@ -243,6 +243,30 @@ export function isUploadAbortError(err: unknown): boolean {
   return err instanceof Error && err.name === "AbortError";
 }
 
+/** Map upload/verify failures to listing-create i18n keys (section-specific copy). */
+export function uploadErrorMessageKey(err: unknown): string {
+  if (err instanceof UploadHttpError) {
+    if (err.status === 403) return "create.errUploadExpired";
+    if (err.status === 413 || err.status === 400) return "create.errUploadTooLarge";
+    if (err.status >= 500 || err.status === 408 || err.status === 429) {
+      return "create.errUploadNetwork";
+    }
+  }
+  if (err instanceof Error) {
+    if (
+      err.message === "upload_network_error" ||
+      err.message === "upload_timeout" ||
+      err.message === "request_url_failed"
+    ) {
+      return "create.errUploadNetwork";
+    }
+  }
+  const status = (err as { status?: number } | null)?.status;
+  if (status === 403) return "create.errUploadExpired";
+  if (status === 503) return "create.errUploadNetwork";
+  return "create.errUpload";
+}
+
 /**
  * Single XHR PUT of `blob` to the presigned URL. XHR (not fetch) is used because
  * it's the only React Native primitive that exposes upload progress events and a

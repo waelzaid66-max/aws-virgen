@@ -16,6 +16,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.bancooom.app",
+      "buildNumber": "1",
       "infoPlist": {
         "NSPhotoLibraryUsageDescription": "BANCO accesses your photos and videos only when you choose them to add to a listing, a chat message, your profile picture, or your business verification documents and identity photo."
       }

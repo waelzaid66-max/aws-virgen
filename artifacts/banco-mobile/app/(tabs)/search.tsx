@@ -36,12 +36,16 @@ import {
   CategoryIcon,
   CategoryTabs,
   EngineChips,
+  IndustrialSubChips,
+  type IndustrialType,
   apiCategoryFor,
+  industrialGroupForCategory,
 } from "@/components/CategoryTabs";
 import {
   useInventoryFacets,
   visibleCategories,
   visibleEngines,
+  visibleIndustrialTypes,
 } from "@/lib/facets";
 import {
   POPULAR_BRANDS,
@@ -89,6 +93,7 @@ const CLEAR_ATTRS: Partial<SearchCriteria> = {
   maxYear: "",
   industry: null,
   originType: null,
+  industrialType: "all",
 };
 
 // The category-independent filters, reset by the sheet's "Clear all" (combined
@@ -260,6 +265,13 @@ export default function SearchScreen() {
     () => visibleEngines(criteria.category, scopedFacets),
     [criteria.category, scopedFacets]
   );
+  const activeGroup = industrialGroupForCategory(criteria.category);
+  const visibleIndTypes = useMemo(
+    () => (activeGroup ? visibleIndustrialTypes(activeGroup, scopedFacets) : null),
+    [activeGroup, scopedFacets]
+  );
+  const showIndustrialChips =
+    !facetsLoading && !!visibleIndTypes && visibleIndTypes.length > 1;
   // If a refresh reveals the selected engine no longer has inventory, fall back
   // to "all" so the committed criteria never references a vanished chip.
   useEffect(() => {
@@ -273,6 +285,17 @@ export default function SearchScreen() {
       update({ engineKey: "all" });
     }
   }, [engineList, criteria.engineKey, update, facetsLoading]);
+
+  useEffect(() => {
+    if (facetsLoading) return;
+    if (
+      criteria.industrialType !== "all" &&
+      visibleIndTypes &&
+      !visibleIndTypes.includes(criteria.industrialType)
+    ) {
+      update({ industrialType: "all" });
+    }
+  }, [visibleIndTypes, criteria.industrialType, update, facetsLoading]);
 
   // Live text input value (the only field that is debounced rather than
   // committed immediately). Price / year drafts live inside the FilterSheet.
@@ -471,6 +494,17 @@ export default function SearchScreen() {
 
   // Engine "Type" chip selection inside the sheet → committed criteria.
   const selectEngine = (key: string) => update({ engineKey: key });
+
+  const selectIndustrialType = (type: IndustrialType) =>
+    update({ industrialType: type });
+
+  const selectOrigin = (o: "all" | "local" | "imported") =>
+    update({ originType: o === "all" ? null : o });
+
+  const originKey: "all" | "local" | "imported" =
+    criteria.originType === "local" || criteria.originType === "imported"
+      ? criteria.originType
+      : "all";
 
   // Quick brand chip inside the sheet (closes the sheet via browseBrand).
   const browseBrandChip = useCallback(
@@ -706,13 +740,58 @@ export default function SearchScreen() {
           sheet. Empty for every other section, so this row only appears where it
           applies. No rent/lease chip — that data does not exist (see
           constants/engines.ts). */}
-      {!facetsLoading && engineList.length > 1 && (
+      {!facetsLoading && engineList.length > 1 && !showIndustrialChips && (
         <EngineChips
           engines={engineList}
           selected={criteria.engineKey}
           onChange={selectEngine}
         />
       )}
+      {showIndustrialChips && (
+        <IndustrialSubChips
+          types={visibleIndTypes!}
+          selected={criteria.industrialType}
+          onChange={selectIndustrialType}
+        />
+      )}
+      {activeGroup ? (
+        <View style={[styles.originRow, { flexDirection: rowDir }]}>
+          {(["all", "local", "imported"] as const).map((o) => {
+            const active = originKey === o;
+            return (
+              <Pressable
+                key={o}
+                onPress={() => {
+                  playSound("tap");
+                  selectOrigin(o);
+                }}
+                style={[
+                  styles.originChip,
+                  {
+                    backgroundColor: active ? colors.primary : colors.secondary,
+                  },
+                ]}
+                testID={`search-origin-${o}`}
+              >
+                <AppText
+                  style={[
+                    styles.originChipText,
+                    {
+                      color: active
+                        ? colors.primaryForeground
+                        : colors.mutedForeground,
+                    },
+                  ]}
+                >
+                  {o === "all"
+                    ? t("search.any")
+                    : t(`create.opts.${o}`)}
+                </AppText>
+              </Pressable>
+            );
+          })}
+        </View>
+      ) : null}
 
       {/* Orientation line: how many results the current criteria produced.
           "24+" while more pages exist, exact once the tail is loaded. */}
@@ -907,6 +986,20 @@ const styles = StyleSheet.create({
   },
   mapToggleText: { fontSize: 14, fontWeight: "700" },
   resultsCount: { fontSize: 12.5, paddingHorizontal: 16, paddingTop: 8 },
+  originRow: {
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingTop: 8,
+  },
+  originChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 18,
+  },
+  originChipText: {
+    fontSize: 13,
+    fontFamily: "Inter_500Medium",
+  },
   header: {
     paddingHorizontal: 16,
     paddingBottom: 12,

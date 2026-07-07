@@ -6,6 +6,8 @@ import { uploadClaims } from "@workspace/db/schema";
 import {
   recordUploadClaim,
   assertCallerMayUseUpload,
+  extendUploadClaimAfterVerify,
+  UPLOAD_CLAIM_VERIFIED_TTL_MS,
 } from "./uploadClaims";
 import { UploadOwnershipError } from "./objectStorage";
 
@@ -42,6 +44,26 @@ describe("uploadClaims", () => {
     const url = `https://banco.example/api/v1/uploads/objects/uploads/${objectPath.split("/").pop()}`;
     await expect(assertCallerMayUseUpload(url, clerkA)).rejects.toBeInstanceOf(
       UploadOwnershipError,
+    );
+    await db.delete(uploadClaims).where(eq(uploadClaims.objectPath, objectPath));
+  });
+
+  it("extends claim expiry after verify window", async () => {
+    const objectPath = `/objects/uploads/${randomUUID()}`;
+    const shortExpiry = new Date(Date.now() + 1000);
+    await db.insert(uploadClaims).values({
+      objectPath,
+      clerkId: clerkA,
+      expiresAt: shortExpiry,
+    });
+    await extendUploadClaimAfterVerify(objectPath, clerkA);
+    const [row] = await db
+      .select({ expiresAt: uploadClaims.expiresAt })
+      .from(uploadClaims)
+      .where(eq(uploadClaims.objectPath, objectPath))
+      .limit(1);
+    expect(row?.expiresAt.getTime()).toBeGreaterThan(
+      Date.now() + UPLOAD_CLAIM_VERIFIED_TTL_MS - 5000,
     );
     await db.delete(uploadClaims).where(eq(uploadClaims.objectPath, objectPath));
   });
