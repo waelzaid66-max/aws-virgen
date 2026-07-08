@@ -1,7 +1,7 @@
 # BANCO STORE — Production Sign-off & Deployment Package
 
-**التاريخ / Date:** 2026-07-08 (final verification wave)  
-**الفرع / Branch:** `main` @ `f2dcab7` (متزامن مع `origin/main`)  
+**التاريخ / Date:** 2026-07-08 (closure wave)  
+**الفرع / Branch:** `main` (push this wave)  
 **الوضع / Mode:** Release Freeze — إصلاحات جذرية فقط، بدون ميزات جديدة  
 **المُعِد / Prepared by:** Engineering readiness pass (code + docs + local gates)
 
@@ -15,6 +15,7 @@
 |--------|--------|
 | **جاهزية الكود للتجميد والنشر التشغيلي** | **GO WITH FIXES** |
 | **النشر العالمي للمتاجر (App Store / Play) بدون إشراف** | **NO GO** |
+| **EAS Preview (Android)** | **IN PROGRESS** — build `2b030ca4-b001-43a5-9723-00128f471d07` |
 | **النشر المباشر إلى إنتاج حي (Replit / AWS / GCP)** | **جاهز على مستوى المستودع + runbooks** — يتطلب أسراراً تشغيلية وتحقق staging لم يُنفَّذ من هذه الشبكة |
 
 **السبب:** بوابات البناء والنوع واللينت والاختبارات الثابتة للموبايل **خضراء محلياً** بعد إصلاح Metro. العوائق المتبقية **تشغيلية** (DB قابل للوصول، JWT Clerk، EAS، متاجر، webhook مراقبة) — وليست انحداراً في منطق المنتج المُجمَّد.
@@ -30,7 +31,8 @@
 | بناء الموبايل (web export) | `pnpm --filter @workspace/banco-mobile run build` | **PASS** | 0 |
 | TypeScript (monorepo) | `pnpm run typecheck` | **PASS** | 0 |
 | Lint | `pnpm run lint` | **PASS** | 0 |
-| اختبارات الموبايل | `pnpm --filter @workspace/banco-mobile run test` | **PASS** (6+12+5 = **23**) | 0 |
+| اختبارات الموبايل | `pnpm --filter @workspace/banco-mobile run test` | **PASS** (**25** = 6+12+5+2) | 0 |
+| Production confidence | `node scripts/production-confidence-check.mjs` | **PASS** (12/12) | 0 |
 
 ### 1.2 بوابات لم تُعاد هنا (مع تبرير صادق)
 
@@ -39,15 +41,19 @@
 | `pnpm run build` كامل monorepo | **غير مُعاد** | CI يبني api-server + admin + dealer + landing؛ الموبايل مُثبت منفصلاً |
 | API vitest كامل | **محجوب محلياً** | يحتاج Postgres؛ **CI job `test`** يشغّله على Linux + Postgres 16 |
 | GitHub Actions | **غير مُتحقق من هنا** | `gh` غير مُصرّح (`GH_TOKEN` / `gh auth login`) — على المشغّل تأكيد الأخضر على `f2dcab7` |
-| Staging smoke | **محجوب** | `CLERK_BEARER_TOKEN` + `BANCO_API_URL` |
-| DB schema verify | **محجوب** | `DATABASE_URL` — `ENOTFOUND` من هذه الشبكة |
-| EAS Android/iOS | **لم يُنفَّذ** | توقيع + حسابات متجر |
+| Staging smoke | **FAIL (ops)** | API sleeping (404); `CLERK_BEARER_TOKEN` absent |
+| DB schema verify | **FAIL (ops)** | `DATABASE_URL` `ENOTFOUND` |
+| EAS Android preview | **IN PROGRESS** | Cloud build queued; auth **PASS** |
+| EAS production + device QA | **NOT DONE** | Required for store **GO** |
 
 ### 1.3 إصلاحات جذرية مُدمجة في `main`
 
 | المشكلة | السبب الجذري | الإصلاح |
 |---------|--------------|---------|
 | فشل Metro (`@react-navigation/*`, Expo peers) | `disableHierarchicalLookup` + تخطيط pnpm معزول بعد تنظيف جزئي على Windows | `.npmrc` hoisted + تبعيات صريحة + `disableHierarchicalLookup = false` |
+| `pnpm` على Windows | `preinstall` يستخدم `sh` | `scripts/preinstall-enforce-pnpm.mjs` |
+| Universal Links | غير مُكوَّن أو hardcoded | `app.config.ts` — env-driven `associatedDomains` / `intentFilters` |
+| أسرار smoke لا تُحمَّل | عملية منفصلة | `tryLoadLocalSecrets()` + `run-with-local-secrets.mjs` |
 | OpenAI تعليق / مفاتيح وهمية | لا timeout ولا رفض placeholders | `OPENAI_TIMEOUT_MS`, `OPENAI_MAX_RETRIES`, رفض DUMMY/CHANGEME، حد `OPENAI_MAX_COMPLETION_TOKENS` |
 | `OBJECT_STORAGE_PROVIDER=gcs` | غير مدعوم في الكود | رفض صريح؛ GCP يستخدم `s3` (HMAC) أو `replit` |
 
@@ -139,7 +145,7 @@
 | Privacy strings (صور/كاميرا/موقع) | موجودة في `app.json` / plugins |
 | Privacy Manifest | `NSPrivacyAccessedAPITypes: []` |
 | ITSAppUsesNonExemptEncryption | `false` |
-| Universal Links | **غير مُكوَّن** — لا `associatedDomains` |
+| Universal Links | **مُكوَّن في التطبيق (env)** — يحتاج ملفات hosted على النطاق |
 
 ### 4.2 Android
 

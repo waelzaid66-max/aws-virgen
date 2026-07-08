@@ -26,6 +26,10 @@
  *   2 — BANCO_API_URL / API_URL not set
  */
 
+import { tryLoadLocalSecrets } from "./load-local-secrets.mjs";
+
+tryLoadLocalSecrets();
+
 const API = (process.env.BANCO_API_URL || process.env.API_URL || "").replace(/\/$/, "");
 const TOKEN = process.env.CLERK_BEARER_TOKEN || process.env.BEARER_TOKEN || "";
 const TOKEN_OTHER = process.env.CLERK_BEARER_TOKEN_OTHER || "";

@@ -1,8 +1,8 @@
 ﻿# Release Candidate — Final (Release Freeze)
 
-**Date:** 2026-07-08 (final sign-off wave)  
+**Date:** 2026-07-08 (closure wave)  
 **Branch:** `main`  
-**Mode:** **RELEASE FREEZE** — no new features; Critical/High only if proven.
+**Mode:** **RELEASE FREEZE** — no new features; root-cause fixes only.
 
 ---
 
@@ -10,58 +10,45 @@
 
 | Environment | Verdict | Why |
 |-------------|---------|-----|
-| **Code base / CI design** | **GO WITH FIXES** | Final wave: mobile build + full typecheck + lint + 23 mobile tests all exit 0 on `f2dcab7` |
-| **Staging** | **GO WHEN OPS BLOCKERS CLOSED** | Authenticated smoke + DB reachability still blocked by runtime secrets/network |
-| **Global production (stores)** | **NO-GO** | App-store operational gates (EAS signing/device/store checks) not fully completed |
+| **Code base / local gates** | **GO WITH FIXES** | Full validation: confidence 12/12, typecheck, lint, mobile build, **25** mobile tests — all exit 0 |
+| **Staging** | **NO GO** | Smoke `0/2` (API sleeping on Replit); `CLERK_BEARER_TOKEN` absent; DB DNS fail |
+| **EAS preview** | **IN PROGRESS** | Android preview submitted — build `2b030ca4-b001-43a5-9723-00128f471d07` |
+| **Global production (stores)** | **NO GO** | No EAS production on device; no device QA matrix; staging red |
 
-**Overall:** **GO WITH FIXES** for merging/shipping code to `origin/main`. **NO-GO** for unsupervised store publish.
-
-**Branch note:** `aws-virgen-main` does not exist on remotes; use `origin/main`.
-
----
-
-## What completed (this freeze / QC wave)
-
-- Root-cause Metro: hierarchical lookup + hoist patterns + explicit `@react-navigation/*` / `expo-modules-core` deps → **banco-mobile build exit 0** (confirmed twice)
-- OpenAI: timeout/retries, dummy-key rejection, completion token cap
-- AWS/GCP env examples: OpenAI ops knobs; GCP storage still `s3`\|`replit` only
-- Final production readiness report refreshed
-- Push target: `origin/main`
+**Overall:** **GO WITH FIXES** for merging code. **NO GO** for production release until ops blockers close.
 
 ---
 
-## What remains (OPS / policy — not unfinished product code)
+## What completed (this wave)
+
+- Cross-platform `preinstall` (Windows pnpm stability)
+- Secrets auto-load for staging/schema scripts + `run-with-local-secrets.mjs`
+- Env-driven Universal/App Links in `app.config.ts` (no hardcoded prod domain)
+- +2 universal-link regression tests (25 total)
+- EAS authenticated (`EXPO_TOKEN`); preview build queued with `EXPO_PUBLIC_DOMAIN` + Clerk key from EAS production env
+- Single full production validation — all green
+
+---
+
+## What remains (OPS)
 
 | # | Item | Owner |
 |---|------|--------|
-| 1 | Staging API URL + Clerk JWTs → `staging-p0-smoke.mjs` | Operator |
-| 2 | `DATABASE_URL` → `verify-upload-claims-schema.mjs` | Operator |
-| 3 | Device listing publish smoke | Operator |
-| 4 | EAS login + preview/production builds + signing | Operator |
-| 5 | Confirm Actions green after push | Operator |
-| 6 | `ERROR_ALERT_WEBHOOK` live test (recommended) | Operator |
-| 7 | Apple/Google Sign-In / push provider config | Operator |
-| 8 | Universal Links / App Links (domains TBD — scheme `bancooom` only today) | Product/ops |
-| 9 | Paymob enable | Policy SKIP until B5 |
-| 10 | Consumer website build | Deferred SKIP |
-
----
-
-## Risks remaining
-
-| Risk | Severity | Mitigation |
-|------|----------|------------|
-| Staging never run | High for launch | Wave A secrets |
-| `ensureSchemaPatches` fails on target DB | High for media | Verify script |
-| Store build without `EXPO_PUBLIC_ROUTER_ORIGIN` | Medium | Checklist |
-| No HTTPS deep links | Medium | Configure domains when known |
-| No DR drill | Medium ops | DISASTER-RECOVERY-VERIFICATION |
+| 1 | Start Replit/staging API → re-run `staging-p0-smoke.mjs` | Operator |
+| 2 | Provide `CLERK_BEARER_TOKEN` for upload/IDOR smoke | Operator |
+| 3 | Fix/reach `DATABASE_URL` → `verify-upload-claims-schema.mjs` | Operator |
+| 4 | Complete EAS preview APK → install on device | Operator |
+| 5 | Device QA matrix (login, listing, upload, chat, wallet, billing, push, deep links, offline) | Operator |
+| 6 | `eas build --profile production` after preview QA | Operator |
+| 7 | Host `apple-app-site-association` + `assetlinks.json` on prod domain | Operator |
+| 8 | FCM/APNs + store consoles (Play internal / TestFlight) | Operator |
+| 9 | `ERROR_ALERT_WEBHOOK` live-fire | Operator |
+| 10 | Real `OPENAI_API_KEY` if AI required at launch | Operator |
 
 ---
 
 ## Related
 
-- [PRODUCTION-SIGN-OFF-AND-DEPLOYMENT.md](./PRODUCTION-SIGN-OFF-AND-DEPLOYMENT.md)  
 - [BANCO-STORE-FINAL-PRODUCTION-READINESS-REPORT.md](./BANCO-STORE-FINAL-PRODUCTION-READINESS-REPORT.md)  
-- [STAGING-REQUIRED-SECRETS.md](./STAGING-REQUIRED-SECRETS.md)  
-- [OPEN-ITEMS-BACKLOG.md](./OPEN-ITEMS-BACKLOG.md)
+- [PRODUCTION-SIGN-OFF-AND-DEPLOYMENT.md](./PRODUCTION-SIGN-OFF-AND-DEPLOYMENT.md)  
+- [STAGING-REQUIRED-SECRETS.md](./STAGING-REQUIRED-SECRETS.md)

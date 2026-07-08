@@ -8,6 +8,10 @@
 
 import pg from "pg";
 
+import { tryLoadLocalSecrets } from "./load-local-secrets.mjs";
+
+tryLoadLocalSecrets();
+
 const url = process.env.DATABASE_URL;
 if (!url) {
   console.error("Set DATABASE_URL to the target Postgres instance.");

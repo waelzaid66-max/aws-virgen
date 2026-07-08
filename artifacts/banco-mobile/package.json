@@ -11,7 +11,8 @@
     "test:icons": "node --test tests/icons.test.mjs",
     "test:lib": "node --test tests/lib-hardening.test.mjs",
     "test:resilience": "node --test tests/mobile-resilience.test.mjs",
-    "test": "pnpm run test:icons && pnpm run test:lib && pnpm run test:resilience"
+    "test:universal-links": "node --test tests/universal-links-config.test.mjs",
+    "test": "pnpm run test:icons && pnpm run test:lib && pnpm run test:resilience && pnpm run test:universal-links"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

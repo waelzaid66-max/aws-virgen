@@ -84,16 +84,18 @@
 
 ---
 
-## Local workstation note (2026-07-08)
+## Local workstation note (2026-07-08 closure wave)
 
 Secrets for this machine live only under **gitignored** `.secrets/local.env` (never committed).  
-Loader: `node scripts/load-local-secrets.mjs` (prints boolean flags only).
+Loaders: `tryLoadLocalSecrets()` (auto in smoke/schema scripts) · `node scripts/run-with-local-secrets.mjs <cmd>` · `node scripts/load-local-secrets.mjs` (flags only).
 
-| Check | Result |
-|-------|--------|
-| Replit API `healthz` / `readyz` | **PASS** (origin from existing `BANCO_API_URL`) |
-| Upload smoke path | **BLOCKED** — need live `CLERK_BEARER_TOKEN` (session JWT) |
-| `verify-upload-claims-schema` | **FAIL DNS** — `DATABASE_URL` host not resolvable from this network |
-| GitHub Actions (via token) | Latest `main` CI **success** before storage fix push; re-check after `c6f81b3` |
-| OpenAI | Still **dummy** key — AI assistant will not work until real key |
+| Check | Result (2026-07-08) |
+|-------|---------------------|
+| `BANCO_API_URL` healthz / readyz | **FAIL** — Replit returns 404 placeholder (API not running) |
+| Upload smoke path | **BLOCKED** — `CLERK_BEARER_TOKEN` not set |
+| `verify-upload-claims-schema` | **FAIL** — `DATABASE_URL` host `ENOTFOUND` from this network |
+| EAS `whoami` | **PASS** — `waelzaid` via `EXPO_TOKEN` |
+| EAS preview build | **STARTED** — `2b030ca4-b001-43a5-9723-00128f471d07` (Android, profile `preview`) |
+| EAS env (production) | `EXPO_PUBLIC_DOMAIN`, `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` present |
+| OpenAI | **dummy** key — AI assistant blocked until real key |
 | Paymob | Remains sandbox / disabled |

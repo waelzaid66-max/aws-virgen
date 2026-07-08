@@ -176,8 +176,10 @@ function checkOpenApi() {
 }
 
 function checkMobileTests() {
-  const r = run("node", ["--test", "tests/icons.test.mjs", "tests/lib-hardening.test.mjs", "tests/mobile-resilience.test.mjs"], MOBILE);
-  if (r.ok) pass("mobile regression tests", "23 tests");
+  const r = run("pnpm", ["run", "test"], MOBILE);
+  const countMatch = (r.stdout || "").match(/ℹ pass (\d+)/);
+  const label = countMatch ? `${countMatch[1]} tests` : "mobile test suite";
+  if (r.ok) pass("mobile regression tests", label);
   else fail("mobile regression tests", r.stderr || r.stdout || `exit ${r.status}`);
 }
 

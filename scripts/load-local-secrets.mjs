@@ -10,6 +10,15 @@ import { fileURLToPath } from "node:url";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const envPath = path.join(root, ".secrets", "local.env");
 
+/** Load gitignored local.env when present; no-op when missing (CI / fresh clone). */
+export function tryLoadLocalSecrets() {
+  if (!fs.existsSync(envPath)) {
+    return { envPath, loaded: 0, present: false };
+  }
+  const r = loadLocalSecrets();
+  return { ...r, present: true };
+}
+
 export function loadLocalSecrets() {
   if (!fs.existsSync(envPath)) {
     throw new Error(`Missing ${envPath}`);

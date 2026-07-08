@@ -1,11 +1,11 @@
 # BANCO — حالة مزامنة الريبوهات (نسخة الإنتاج)
 
-**التاريخ:** 2026-07-08 (تحديث Cloud Agent)  
-**HEAD على `main` (origin):** `dc5918d` (RC finalization + tag `v1.0.0-rc.1`)  
-**مرآات GitHub:** `b-banco` / `b.deals` / `B-OOM` — `./scripts/push-mirror-remotes.sh` · **`aws-virgen`** — `./scripts/publish-aws-virgen-rc.sh`.
+**التاريخ:** 2026-07-08 (closure wave)  
+**HEAD على `main` (origin):** يُحدَّث بعد إكمال rebase/push هذه الموجة  
+**مرآات GitHub:** `b-banco` / `b.deals` / `B-OOM` @ `5fd9158` · **`aws-virgen`** — `./scripts/publish-aws-virgen-rc.sh`  
+**أداة دفع المرآات:** `scripts/push-mirror-remotes.sh`
 
-**آخر commit كود/إصلاحات (قبل توثيق المزامنة فقط):** `92a33e0` (اعتماد إنتاج) · `f2dcab7` (Metro + OpenAI)  
-**أداة دفع المرآات:** `scripts/push-mirror-remotes.sh` (يتطلب صلاحيات المالك — `cursor[bot]` لا يملك push لـ `b-banco` / `b.deals` / `B-OOM`)
+**آخر commit إصلاحات (هذه الموجة):** release-freeze — Windows preinstall، Universal Links env، ops secrets loader، 25 اختبار موبايل
 
 ---
 
@@ -15,34 +15,32 @@
 |---------|--------|---------|
 | **تسليم للوكيل الأساسي** | `release/PRIMARY_AGENT_HANDOFF.md` | SHA، مرآات، ما يبقى OPS |
 | **مزامنة الريبوهات (هذا الملف)** | `REPO_SYNC_STATUS.md` | SHA، الريموتات، نتائج الدفع |
-| **مزامنة Replit → b-banco (قديم)** | `SYNC_REPORT.md` | مرجع تاريخي 2026-07-04 |
 | **اعتماد إنتاج + نشر** | `audit/production-readiness/PRODUCTION-SIGN-OFF-AND-DEPLOYMENT.md` | جاهزية، أمن، امتثال، GO/NO GO |
 | **تقرير جاهزية نهائي** | `audit/production-readiness/BANCO-STORE-FINAL-PRODUCTION-READINESS-REPORT.md` | مصفوفة الحالة |
 | **مرشح الإصدار** | `audit/production-readiness/RELEASE-CANDIDATE-FINAL.md` | قرار التجميد |
 | **تشغيل EAS + جهاز** | `audit/production-readiness/STAGING-EAS-DEVICE-RUNBOOK.md` | أوامر PowerShell |
 | **بناء EAS** | `release/EAS_BUILD.md` | متغيرات `EXPO_PUBLIC_*` |
-| **نشر عام** | `release/DEPLOYMENT.md` · `release/DEPLOY_VERIFICATION.md` | Replit / AWS |
 | **صيانة رئيسي** | `audit/maintenance/MASTER-MAINTENANCE-READINESS-PLAN.md` | موجات الصيانة |
 | **فحص محلي بدون أسرار** | `node scripts/production-confidence-check.mjs` | 12/12 بوابات |
 
 ---
 
-## الريبوهات والريموتات
+## الريموتات
 
 | الاسم | GitHub URL | دور | `main` @ |
 |-------|------------|-----|----------|
-| **origin** (أساسي) | `waelzaid66-max/-BANCO-CA-OOM-` | مصدر العمل الرئيسي | `dc5918d` ✅ tag `v1.0.0-rc.1` |
-| **bbanco** | `waelzaid66-max/b-banco` | مرآة كاملة | ⏳ `./scripts/push-mirror-remotes.sh` |
-| **bdeals** | `waelzaid66-max/b.deals` | الريبو الأصلي (deploy) | ⏳ |
-| **boom** | `waelzaid66-max/B-OOM` | B-OOM الأصلي | ⏳ |
-| **aws-virgen** | `waelzaid66-max/aws-virgen` | AWS EC2/CD | ⏳ `./scripts/publish-aws-virgen-rc.sh` |
-| **upstream** (محلي) | `banco stor app/banco.store-main` | نسخة محلية | يدوي — قارن بـ `dc5918d` |
+| **origin** | `waelzaid66-max/-BANCO-CA-OOM-` | مصدر العمل | rebase pending |
+| **bbanco** | `waelzaid66-max/b-banco` | مرآة | `5fd9158` ✅ |
+| **bdeals** | `waelzaid66-max/b.deals` | deploy أصلي | `5fd9158` ✅ |
+| **boom** | `waelzaid66-max/B-OOM` | B-OOM | `5fd9158` ✅ |
+| **aws-virgen** | `waelzaid66-max/aws-virgen` | AWS EC2/CD | `./scripts/publish-aws-virgen-rc.sh` |
+| **upstream** (محلي) | `banco stor app/banco.store-main` | نسخة محلية | يدوي |
 
-> **ملاحظة:** لا يوجد فرع `aws-virgen-main`. مجلد `aws-virgen` مرجع منفصل فقط.
+> لا يوجد فرع `aws-virgen-main`.
 
 ---
 
-## اختبارات ما قبل الدفع (2026-07-08)
+## اختبارات Full Production Validation (موجة واحدة — 2026-07-08)
 
 | البوابة | النتيجة |
 |---------|---------|
@@ -50,30 +48,22 @@
 | `pnpm run typecheck` | **PASS** |
 | `pnpm run lint` | **PASS** |
 | `banco-mobile build` | **PASS** |
-| `banco-mobile test` (23) | **PASS** |
+| `banco-mobile test` | **PASS (25)** |
+| `staging-p0-smoke.mjs` | **FAIL** — API غير شغّال + لا JWT |
+| `verify-upload-claims-schema.mjs` | **FAIL** — DNS DB |
+| EAS `whoami` | **PASS** |
+| EAS preview Android | **IN PROGRESS** `2b030ca4-b001-43a5-9723-00128f471d07` |
 
 ---
 
-## التحقق بعد الدفع
+## قرار الإصدار
 
-```powershell
-cd C:\Users\waelz\Downloads\BANCO-CA-OOM
-git fetch origin bbanco bdeals boom
-git rev-parse HEAD origin/main bbanco/main bdeals/main boom/main
-# يجب أن تكون الأربعة = 045112f... بعد تشغيل push-mirror-remotes.sh من Replit
-```
-
----
-
-## CI على GitHub
-
-بعد الدفع، تحقق من Actions على كل ريبو:
-
-- https://github.com/waelzaid66-max/-BANCO-CA-OOM-/actions
-- https://github.com/waelzaid66-max/b-banco/actions
-- https://github.com/waelzaid66-max/b.deals/actions
-- https://github.com/waelzaid66-max/B-OOM/actions
+| النطاق | الحكم |
+|--------|--------|
+| كود + بوابات محلية | **GO WITH FIXES** |
+| Staging | **NO GO** |
+| متاجر / إنتاج عالمي | **NO GO** |
 
 ---
 
-*يُحدَّث تلقائياً عند كل موجة مزامنة إنتاج.*
+*يُحدَّث بعد كل دفع إنتاج.*
