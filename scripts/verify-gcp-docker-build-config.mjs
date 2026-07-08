@@ -142,6 +142,26 @@ function checkDockerfilePathsInCloudBuild() {
   return true;
 }
 
+function checkCloudRunDeploySafety() {
+  const deploy = read("deploy/gcp/cloudbuild.deploy.yaml");
+  if (!deploy.includes("_ALLOW_UNAUTH")) {
+    console.error("[FAIL] deploy/gcp/cloudbuild.deploy.yaml must define _ALLOW_UNAUTH substitution");
+    return false;
+  }
+  if (deploy.includes("--allow-unauthenticated") && !deploy.includes('if [ "${_ALLOW_UNAUTH}" = "true" ]')) {
+    console.error(
+      "[FAIL] deploy/gcp/cloudbuild.deploy.yaml should not force --allow-unauthenticated; gate it with _ALLOW_UNAUTH",
+    );
+    return false;
+  }
+  if (!deploy.includes("artifacts repositories describe")) {
+    console.error("[FAIL] deploy/gcp/cloudbuild.deploy.yaml should preflight Artifact Registry repository existence");
+    return false;
+  }
+  console.log("[PASS] cloudbuild deploy safety guards are present (_ALLOW_UNAUTH + preflight)");
+  return true;
+}
+
 function main() {
   let ok = true;
   ok = checkFiles() && ok;
@@ -151,6 +171,7 @@ function main() {
   ok = checkCloudBuildUsesBuildId("deploy/gcp/cloudbuild.deploy.yaml") && ok;
   ok = checkForbiddenImageTags() && ok;
   ok = checkDockerfilePathsInCloudBuild() && ok;
+  ok = checkCloudRunDeploySafety() && ok;
 
   if (ok) {
     console.log("\nGCP Docker/Cloud Build config OK. Use build context = repository root (.).");

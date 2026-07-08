@@ -1,14 +1,31 @@
 # Cloud Build → Artifact Registry → Cloud Run (full deploy).
-# Run ONLY after cloudbuild.yaml (build-only) succeeds.
+# Run ONLY after deploy/gcp/cloudbuild.yaml (build + push) succeeds.
 # Context MUST be repository root (.)
+#
+# Common deploy failure: org policy blocks public services. Do not force
+# --allow-unauthenticated by default; use _ALLOW_UNAUTH=true when needed.
 
 substitutions:
   _REGION: europe-west1
   _SERVICE: banco-api
   _AR_REPO: banco
   _IMAGE_NAME: api
+  _ALLOW_UNAUTH: "false"
 
 steps:
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    id: preflight
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        gcloud --quiet services enable run.googleapis.com artifactregistry.googleapis.com cloudbuild.googleapis.com
+        gcloud --quiet artifacts repositories describe ${_AR_REPO} --location=${_REGION} >/dev/null || {
+          echo "[ERROR] Artifact Registry repo '${_AR_REPO}' not found in region '${_REGION}'.";
+          echo "Create it first: gcloud artifacts repositories create ${_AR_REPO} --repository-format=docker --location=${_REGION}";
+          exit 1;
+        }
+
   - name: gcr.io/cloud-builders/docker
     id: build-api
     args:
@@ -27,17 +44,22 @@ steps:
 
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk
     id: deploy-cloud-run
-    entrypoint: gcloud
+    entrypoint: bash
     args:
-      - run
-      - deploy
-      - ${_SERVICE}
-      - --image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/${_IMAGE_NAME}:$BUILD_ID
-      - --region=${_REGION}
-      - --platform=managed
-      - --allow-unauthenticated
-      - --port=8080
-      - --set-env-vars=NODE_ENV=production,TZ=UTC
+      - -ceu
+      - |
+        AUTH_FLAG="--no-allow-unauthenticated"
+        if [ "${_ALLOW_UNAUTH}" = "true" ]; then
+          AUTH_FLAG="--allow-unauthenticated"
+        fi
+
+        gcloud run deploy ${_SERVICE} \
+          --image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/${_IMAGE_NAME}:$BUILD_ID \
+          --region=${_REGION} \
+          --platform=managed \
+          ${AUTH_FLAG} \
+          --port=8080 \
+          --set-env-vars=NODE_ENV=production,TZ=UTC
 
 images:
   - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/${_IMAGE_NAME}:$BUILD_ID

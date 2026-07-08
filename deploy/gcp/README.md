@@ -47,7 +47,7 @@ gcloud builds submit . --config=deploy/gcp/cloudbuild.yaml \
 
 # 2) Full pipeline (build + push + Cloud Run) — after step 1 works
 gcloud builds submit . --config=deploy/gcp/cloudbuild.deploy.yaml \
-  --substitutions=_REGION=europe-west1,_AR_REPO=banco,_SERVICE=banco-api
+  --substitutions=_REGION=europe-west1,_AR_REPO=banco,_SERVICE=banco-api,_ALLOW_UNAUTH=false
 
 # Local verify (no Docker required)
 node scripts/verify-gcp-docker-build-config.mjs
@@ -70,6 +70,23 @@ docker build -f Dockerfile -t banco-api .
 | Object storage | S3-compatible HMAC or `replit` — **no `gcs` provider value** |
 | Secrets | Secret Manager → Cloud Run env |
 | Mobile | EAS / app stores (not on GCP) |
+
+## Cloud Run deploy failures (real causes + fix)
+
+Most deploy failures are not Docker build errors; they happen in `deploy-cloud-run` step:
+
+| Failure class | Typical error text | Fix now in repo |
+|---|---|---|
+| Public access blocked by org policy | `iam.setIamPolicy denied` / unauthenticated not allowed | `cloudbuild.deploy.yaml` defaults to `_ALLOW_UNAUTH=false` (`--no-allow-unauthenticated`) |
+| Missing Artifact Registry repo | `NOT_FOUND: Repository ...` | Preflight now checks repo and fails with explicit create command |
+| APIs not enabled | `API ... has not been used/disabled` | Preflight now enables required APIs before deploy |
+
+If you need a public endpoint, run with:
+
+```bash
+gcloud builds submit . --config=deploy/gcp/cloudbuild.deploy.yaml \
+  --substitutions=_REGION=europe-west1,_AR_REPO=banco,_SERVICE=banco-api,_ALLOW_UNAUTH=true
+```
 
 ## Files
 
