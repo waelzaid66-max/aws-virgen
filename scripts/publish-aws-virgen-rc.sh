@@ -12,11 +12,16 @@ if ! git remote get-url origin &>/dev/null; then
 fi
 
 ORIGIN_URL="$(git remote get-url origin)"
-VIRGEN_URL="$(echo "$ORIGIN_URL" | sed 's|-BANCO-CA-OOM-|aws-virgen|')"
+VIRGEN_URL="$(echo "$ORIGIN_URL" | sed 's|-BANCO-CA-OOM-|aws-virgen|' | sed -E 's#https://[^@]+@#https://#')"
 
 TOKEN="${AWS_VIRGEN_SYNC_TOKEN:-${GITHUB_TOKEN:-}}"
-auth_url() {
+strip_git_credentials() {
   local url="$1"
+  echo "$url" | sed -E 's#https://[^@]+@#https://#; s#git@[^:]+:([^ ]+)#https://github.com/\1#'
+}
+auth_url() {
+  local url
+  url="$(strip_git_credentials "$1")"
   if [[ -n "$TOKEN" && "$url" == https://* ]]; then
     local hostpath="${url#https://}"
     echo "https://x-access-token:${TOKEN}@${hostpath}"
@@ -37,7 +42,7 @@ WORKDIR="$(mktemp -d)"
 trap 'rm -rf "$WORKDIR"' EXIT
 
 CLONE_URL="$(auth_url "$VIRGEN_URL")"
-echo "[aws-virgen] clone $VIRGEN_URL"
+echo "[aws-virgen] clone $(strip_git_credentials "$VIRGEN_URL")"
 git clone "$CLONE_URL" "$WORKDIR/repo"
 cd "$WORKDIR/repo"
 
@@ -46,7 +51,7 @@ git remote add banco "$BANCO_FETCH"
 git fetch banco main
 
 echo "[aws-virgen] merge banco/main ($SHA)"
-git merge banco/main -m "chore(release): sync production main ($TAG) into aws-virgen"
+git merge banco/main -m "chore(release): sync production main ($TAG) into aws-virgen" -X theirs
 
 if [[ -f "$ROOT/.github/workflows/deploy.yml" ]]; then
   mkdir -p .github/workflows

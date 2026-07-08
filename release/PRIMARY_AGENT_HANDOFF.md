@@ -139,18 +139,22 @@ git ls-remote https://github.com/waelzaid66-max/aws-virgen.git refs/heads/main
 
 ## 7) تعريف «نجاح كامل»
 
-- [ ] `main` على الأساسي: CI 4/4 أخضر
+- [x] `main` على الأساسي: CI 5/5 أخضر (run 28978878224 @ `482eb34`)
 - [ ] `pnpm` محلي على Replit: typecheck + lint + api tests + mobile tests
-- [ ] `aws-virgen/main` = merge من نفس `main` + tag `v1.0.0-rc.2`
-- [ ] GCP: `verify-gcp-docker-build-config.mjs` في CI + مشغّلات Console محدّثة
+- [ ] `aws-virgen/main` = merge من نفس `main` + tag `v1.0.0-rc.2` (**نفّذ `publish-aws-virgen-rc.sh` بحساب المالك**)
+- [ ] GCP: مشغّلات Console محدّثة (`TRIGGER_MIGRATION.md`) + أسرار/SQL
 - [ ] smoke staging (عند توفر URL + JWT)
-- [ ] `REPO_SYNC_STATUS.md` محدّث بـ SHA الحالي
+- [x] `REPO_SYNC_STATUS.md` محدّث
+
+### لماذا virgen لم يُدفع من Cloud Agent؟
+
+بيئة Cursor ترفض `git push` إلى `aws-virgen` بهوية **cursor[bot]** حتى مع PAT في URL. الدمج يُنجَز محلياً في السكربت؛ **الدفع الأخير** يجب أن يكون من Replit بعد `gh auth login` كمالك المستودع.
 
 ---
 
 ## English summary (for programmers)
 
-1. Pull `origin/main` @ `30dcb2a+`, merge open PRs #5/#3.
+1. Pull `origin/main` @ `482eb34` (PR #5 merged).
 2. Run full `pnpm` verification locally on Replit.
 3. Publish **full tree** to `aws-virgen` via `publish-aws-virgen-rc.sh` or sync workflow (owner PAT).
 4. GCP: follow `deploy/gcp/reports/`, fix Cloud Build **triggers** in Console, bootstrap secrets/SQL, deploy with `cloudbuild.deploy.yaml`.

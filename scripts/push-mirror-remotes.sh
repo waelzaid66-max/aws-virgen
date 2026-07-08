@@ -6,15 +6,27 @@ cd "$(dirname "$0")/.."
 SHA="$(git rev-parse HEAD)"
 echo "[sync] HEAD = $SHA"
 
+TOKEN="${MIRROR_PUSH_TOKEN:-${AWS_VIRGEN_SYNC_TOKEN:-${GITHUB_TOKEN:-}}}"
+
+strip_git_credentials() {
+  echo "$1" | sed -E 's#https://[^@]+@#https://#; s#git@[^:]+:([^ ]+)#https://github.com/\1#'
+}
+
+auth_url() {
+  local url
+  url="$(strip_git_credentials "$1")"
+  if [[ -n "$TOKEN" && "$url" == https://* ]]; then
+    echo "https://x-access-token:${TOKEN}@${url#https://}"
+  else
+    echo "$url"
+  fi
+}
+
 add_remote() {
   local name="$1"
   local repo="$2"
-  local url
-  if git remote get-url origin &>/dev/null; then
-    url="$(git remote get-url origin | sed "s|-BANCO-CA-OOM-|$repo|")"
-  else
-    url="https://github.com/waelzaid66-max/$repo.git"
-  fi
+  local url="https://github.com/waelzaid66-max/$repo.git"
+  url="$(auth_url "$url")"
   if git remote get-url "$name" &>/dev/null; then
     git remote set-url "$name" "$url"
   else
@@ -26,12 +38,18 @@ add_remote bbanco b-banco
 add_remote bdeals b.deals
 add_remote boom B-OOM
 
-git push -u origin main
+ORIGIN_PUSH="$(auth_url "$(strip_git_credentials "$(git remote get-url origin)")")"
+git -c credential.helper= push "$ORIGIN_PUSH" HEAD:main
+
 for r in bbanco bdeals boom; do
   echo "[sync] pushing main -> $r"
-  git push "$r" main:main
+  git -c credential.helper= push "$r" HEAD:main
 done
 
 echo "[sync] verify:"
-git fetch origin bbanco bdeals boom
-git rev-parse HEAD origin/main bbanco/main bdeals/main boom/main
+git fetch origin bbanco bdeals boom 2>/dev/null || true
+git rev-parse HEAD
+git ls-remote origin refs/heads/main | awk '{print "origin/main", $1}'
+for r in bbanco bdeals boom; do
+  git ls-remote "$r" refs/heads/main | awk -v r="$r" '{print r"/main", $1}'
+done

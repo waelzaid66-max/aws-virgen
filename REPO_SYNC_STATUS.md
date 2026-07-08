@@ -1,27 +1,18 @@
 # BANCO — حالة مزامنة الريبوهات (نسخة الإنتاج)
 
-**التاريخ:** 2026-07-08 (closure wave)  
-**HEAD على `main` (origin):** `a8cc3e1`  
-**مرآات GitHub:** `b-banco` / `b.deals` / `B-OOM` @ `a8cc3e1` ✅  
-**أداة دفع المرآات:** `scripts/push-mirror-remotes.sh`
+**التاريخ:** 2026-07-08 (موجة إغلاق — PR #5 مدمج)  
+**HEAD على `main` (origin):** `482eb34` (أو أحدث بعد `fix(publish)`)
 
-**آخر commit إصلاحات (هذه الموجة):** release-freeze — Windows preinstall، Universal Links env، ops secrets loader، 25 اختبار موبايل
+## GitHub Actions CI على `main`
 
----
+| Run | الحالة |
+|-----|--------|
+| [28978878224](https://github.com/waelzaid66-max/-BANCO-CA-OOM-/actions/runs/28978878224) | ✅ 5/5 (Typecheck، API tests، ESLint، GCP gate، Mobile) |
 
-## أين تقارير التحديثات والتشغيل؟
+**Tag مستهدف:** `v1.0.0-rc.2`
 
-| التقرير | المسار | المحتوى |
-|---------|--------|---------|
-| **تسليم للوكيل الأساسي** | `release/PRIMARY_AGENT_HANDOFF.md` | SHA، مرآات، ما يبقى OPS |
-| **مزامنة الريبوهات (هذا الملف)** | `REPO_SYNC_STATUS.md` | SHA، الريموتات، نتائج الدفع |
-| **اعتماد إنتاج + نشر** | `audit/production-readiness/PRODUCTION-SIGN-OFF-AND-DEPLOYMENT.md` | جاهزية، أمن، امتثال، GO/NO GO |
-| **تقرير جاهزية نهائي** | `audit/production-readiness/BANCO-STORE-FINAL-PRODUCTION-READINESS-REPORT.md` | مصفوفة الحالة |
-| **مرشح الإصدار** | `audit/production-readiness/RELEASE-CANDIDATE-FINAL.md` | قرار التجميد |
-| **تشغيل EAS + جهاز** | `audit/production-readiness/STAGING-EAS-DEVICE-RUNBOOK.md` | أوامر PowerShell |
-| **بناء EAS** | `release/EAS_BUILD.md` | متغيرات `EXPO_PUBLIC_*` |
-| **صيانة رئيسي** | `audit/maintenance/MASTER-MAINTENANCE-READINESS-PLAN.md` | موجات الصيانة |
-| **فحص محلي بدون أسرار** | `node scripts/production-confidence-check.mjs` | 12/12 بوابات |
+**أداة دفع المرآات:** `scripts/push-mirror-remotes.sh`  
+**أداة aws-virgen:** `scripts/publish-aws-virgen-rc.sh v1.0.0-rc.2`
 
 ---
 
@@ -29,30 +20,44 @@
 
 | الاسم | GitHub URL | دور | `main` @ |
 |-------|------------|-----|----------|
-| **origin** | `waelzaid66-max/-BANCO-CA-OOM-` | مصدر العمل | `a8cc3e1` ✅ |
-| **bbanco** | `waelzaid66-max/b-banco` | مرآة | `a8cc3e1` ✅ |
-| **bdeals** | `waelzaid66-max/b.deals` | deploy أصلي | `a8cc3e1` ✅ |
-| **boom** | `waelzaid66-max/B-OOM` | B-OOM | `a8cc3e1` ✅ |
-| **aws-virgen** | `waelzaid66-max/aws-virgen` | AWS EC2/CD | `./scripts/publish-aws-virgen-rc.sh v1.0.0-rc.2` أو workflow **Sync aws-virgen** |
-| **upstream** (محلي) | `banco stor app/banco.store-main` | نسخة محلية | يدوي |
+| **origin** | `waelzaid66-max/-BANCO-CA-OOM-` | مصدر العمل | `482eb34` ✅ |
+| **aws-virgen** | `waelzaid66-max/aws-virgen` | AWS EC2/CD | **يدوي** — merge جاهز؛ الدفع يتطلب `gh auth` كمالك (ليس cursor[bot]) |
+| **bbanco** | `waelzaid66-max/b-banco` | مرآة | شغّل `push-mirror-remotes.sh` |
+| **bdeals** | `waelzaid66-max/b.deals` | deploy | شغّل `push-mirror-remotes.sh` |
+| **boom** | `waelzaid66-max/B-OOM` | B-OOM | شغّل `push-mirror-remotes.sh` |
 
-> لا يوجد فرع `aws-virgen-main`.
+> Cloud Agent يدمج محلياً لـ virgen لكن **لا يستطيع push** — GitHub يفرض هوية `cursor[bot]` على git push.
 
 ---
 
-## اختبارات Full Production Validation (موجة واحدة — 2026-07-08)
+## تقارير التشغيل (Replit + GCP + AWS)
 
-| البوابة | النتيجة |
-|---------|---------|
-| `production-confidence-check.mjs` | **12/12 PASS** |
-| `pnpm run typecheck` | **PASS** |
-| `pnpm run lint` | **PASS** |
-| `banco-mobile build` | **PASS** |
-| `banco-mobile test` | **PASS (25)** |
-| `staging-p0-smoke.mjs` | **FAIL** — API غير شغّال + لا JWT |
-| `verify-upload-claims-schema.mjs` | **FAIL** — DNS DB |
-| EAS `whoami` | **PASS** |
-| EAS preview Android | **IN PROGRESS** `2b030ca4-b001-43a5-9723-00128f471d07` |
+| التقرير | المسار |
+|---------|--------|
+| تسليم الوكيل | `release/PRIMARY_AGENT_HANDOFF.md` |
+| تشغيل موحّد | `release/REPLIT_GOOGLE_AWS_UNIFIED_RUNBOOK.md` |
+| GCP كامل | `deploy/gcp/reports/00-README.md` |
+| مشغّلات Google | `deploy/gcp/TRIGGER_MIGRATION.md` |
+| AWS | `deploy/aws/reports/00-README.md` |
+| فهرس النشر | `docs/DEPLOYMENT_GUIDES.md` |
+
+---
+
+## أوامر الإغلاق على Replit (مالك المستودع)
+
+```bash
+git pull origin main
+gh auth status   # يجب حساب waelzaid66-max وليس bot
+
+export AWS_VIRGEN_SYNC_TOKEN="$(gh auth token)"   # PAT بصلاحية repo على aws-virgen
+./scripts/publish-aws-virgen-rc.sh v1.0.0-rc.2
+
+./scripts/push-mirror-remotes.sh
+
+pnpm install --frozen-lockfile
+pnpm run typecheck && pnpm run lint && pnpm run confidence
+pnpm --filter @workspace/api-server test
+```
 
 ---
 
@@ -60,10 +65,9 @@
 
 | النطاق | الحكم |
 |--------|--------|
-| كود + بوابات محلية | **GO WITH FIXES** |
-| Staging | **NO GO** |
-| متاجر / إنتاج عالمي | **NO GO** |
+| كود + CI على الأساسي | **GO** |
+| aws-virgen + مرآات | **GO** بعد أوامر الدفع أعلاه |
+| GCP Console triggers + أسرار حية | **GO WITH FIXES** |
+| متاجر عالمية | **NO GO** حتى OPS (EAS، smoke staging) |
 
----
-
-*يُحدَّث بعد كل دفع إنتاج.*
+*يُحدَّث بعد كل دفع.*

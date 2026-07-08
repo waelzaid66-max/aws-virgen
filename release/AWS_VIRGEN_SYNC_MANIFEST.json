@@ -1,13 +1,13 @@
 {
   "schema": "banco-aws-virgen-sync/1",
-  "generatedAt": "2026-07-08T21:56:46.022Z",
+  "generatedAt": "2026-07-08T22:09:20.019Z",
   "releaseTag": "v1.0.0-rc.2",
   "primaryRepository": "waelzaid66-max/-BANCO-CA-OOM-",
   "awsVirgenRepository": "waelzaid66-max/aws-virgen",
   "commit": {
-    "full": "009b1b52caf589af7920c9fdb3c857f1bb7e3b87",
-    "short": "009b1b5",
-    "subject": "chore(release): full aws-virgen sync manifest, publish script, and Actions workflow"
+    "full": "482eb34fa5a3c2b38fc5addc8c15b5f21eabeea8",
+    "short": "482eb34",
+    "subject": "chore(release): primary handoff, GCP pack, aws-virgen sync (#5)"
   },
   "syncPolicy": "merge primary main into aws-virgen main (full tree, history preserved)",
   "ci": {
