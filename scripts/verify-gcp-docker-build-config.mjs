@@ -27,8 +27,17 @@ const REQUIRED_FILES = [
 
 const FORBIDDEN_TAG_PATTERNS = [
   /\$SHORT_SHA\s*$/m, // tag ending with empty SHORT_SHA → invalid reference
-  /:\s*$/m, // bare colon at EOL in tag line (heuristic)
 ];
+
+function imageTagLines(text) {
+  return text
+    .split(/\r?\n/)
+    .filter(
+      (line) =>
+        line.includes("docker.pkg.dev") ||
+        (line.trim().startsWith("- ") && line.includes("${_REGION}")),
+    );
+}
 
 function read(rel) {
   return fs.readFileSync(path.join(ROOT, rel), "utf8");
@@ -86,15 +95,35 @@ function checkCloudBuildUsesBuildId(rel) {
   return true;
 }
 
-function checkNoBareShortShaTags() {
-  for (const rel of ["cloudbuild.yaml", "deploy/gcp/cloudbuild.yaml", "deploy/gcp/cloudbuild.deploy.yaml"]) {
+function checkForbiddenImageTags() {
+  const cloudbuildFiles = [
+    "cloudbuild.yaml",
+    "deploy/gcp/cloudbuild.yaml",
+    "deploy/gcp/cloudbuild.deploy.yaml",
+  ];
+
+  for (const rel of cloudbuildFiles) {
     const text = read(rel);
-    if (/:?\$SHORT_SHA\s*$/m.test(text)) {
-      console.error(`[FAIL] ${rel}: image tag uses only $SHORT_SHA — use $BUILD_ID`);
-      return false;
+    const tagLines = imageTagLines(text);
+    for (const line of tagLines) {
+      for (const pattern of FORBIDDEN_TAG_PATTERNS) {
+        if (pattern.test(line)) {
+          console.error(
+            `[FAIL] ${rel}: forbidden image tag line "${line.trim()}" (use $BUILD_ID, not bare $SHORT_SHA)`,
+          );
+          return false;
+        }
+      }
+      if (/:\s*$/.test(line) && !line.includes("$BUILD_ID") && !line.includes("latest")) {
+        console.error(
+          `[FAIL] ${rel}: image tag line ends with bare colon — "${line.trim()}"`,
+        );
+        return false;
+      }
     }
   }
-  console.log("[PASS] no bare $SHORT_SHA-only image tags in cloudbuild files");
+
+  console.log("[PASS] cloudbuild image tags avoid forbidden SHORT_SHA / bare-colon patterns");
   return true;
 }
 
@@ -120,7 +149,7 @@ function main() {
   ok = checkCloudBuildUsesBuildId("cloudbuild.yaml") && ok;
   ok = checkCloudBuildUsesBuildId("deploy/gcp/cloudbuild.yaml") && ok;
   ok = checkCloudBuildUsesBuildId("deploy/gcp/cloudbuild.deploy.yaml") && ok;
-  ok = checkNoBareShortShaTags() && ok;
+  ok = checkForbiddenImageTags() && ok;
   ok = checkDockerfilePathsInCloudBuild() && ok;
 
   if (ok) {
