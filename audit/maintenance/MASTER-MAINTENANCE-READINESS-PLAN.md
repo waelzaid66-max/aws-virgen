@@ -8,6 +8,8 @@
 
 **برنامج الجاهزية للإنتاج (21 مرحلة):** تتبّع منفصل في [`audit/production-readiness/README.md`](../production-readiness/README.md) — المرحلة 01 (البنية الأساسية) مكتملة بإصلاحات؛ المرحلة التالية الموصى بها: **02 — قاعدة البيانات والمخطط**.
 
+**حالة الأهداف الآن (موحّدة):** [`audit/production-readiness/FULL-READINESS-STATUS-PLAN.md`](../production-readiness/FULL-READINESS-STATUS-PLAN.md) — ما يحتاج صيانة، ما الناقص، Waves A–F نحو الإطلاق.
+
 ---
 
 ## 1. ملخص تنفيذي
