@@ -158,6 +158,12 @@ function checkWorkspaceRefs() {
   }
 }
 
+function checkGcpDockerConfig() {
+  const r = run("node", ["scripts/verify-gcp-docker-build-config.mjs"], ROOT);
+  if (r.ok) pass("gcp docker/cloudbuild config");
+  else fail("gcp docker/cloudbuild config", (r.stderr || r.stdout).split("\n").slice(-6).join(" "));
+}
+
 function checkOpenApi() {
   if (!fs.existsSync(OPENAPI)) {
     fail("openapi.yaml", "missing");
@@ -222,6 +228,7 @@ function main() {
   checkExpoSdkAlignment();
   checkWorkspaceRefs();
   checkOpenApi();
+  checkGcpDockerConfig();
 
   if (!skipTypecheck) {
     checkLibsTypecheck();

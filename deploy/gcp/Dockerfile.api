@@ -1,7 +1,8 @@
 ###############################################################################
 # BANCO API server — GCP Cloud Run image.
-# Identical build recipe to deploy/aws/Dockerfile.api (shared context = repo root).
+# Keep in sync with repo-root ./Dockerfile (EB + GCP Console /Dockerfile path).
 #
+# Build context = REPOSITORY ROOT:
 #   docker build -f deploy/gcp/Dockerfile.api -t banco-api .
 ###############################################################################
 
@@ -10,7 +11,9 @@ ENV PNPM_HOME=/pnpm
 ENV PATH=$PNPM_HOME:$PATH
 RUN corepack enable
 WORKDIR /app
+
 COPY . .
+
 RUN pnpm install --frozen-lockfile --filter "@workspace/api-server..."
 RUN pnpm --filter @workspace/api-server run build
 
@@ -25,10 +28,16 @@ COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/artifacts/api-server/node_modules ./artifacts/api-server/node_modules
 COPY --from=builder /app/artifacts/api-server/package.json ./artifacts/api-server/package.json
 COPY --from=builder /app/artifacts/api-server/dist ./artifacts/api-server/dist
+
 RUN useradd -r -u 10001 -g root banco && chown -R banco:root /app
 USER banco
 WORKDIR /app/artifacts/api-server
+
 ENV PORT=8080
 EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=45s --retries=3 \
+  CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||8080)+'/api/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+
 ENTRYPOINT ["/usr/bin/tini", "--"]
 CMD ["node", "--enable-source-maps", "dist/index.mjs"]

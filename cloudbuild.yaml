@@ -1,12 +1,10 @@
-# Cloud Build → Artifact Registry (build + push ONLY — no Cloud Run deploy).
-# Use this for first-time GCP validation. Context MUST be repository root (.).
+# BANCO API — Cloud Build entry point at repository root.
+# Matches Google Console "Dockerfile location: Dockerfile" (repo root).
+# Build + push only — no Cloud Run deploy. See deploy/gcp/cloudbuild.deploy.yaml to deploy.
 #
-# Console / gcloud:
-#   gcloud builds submit . --config=deploy/gcp/cloudbuild.yaml \
-#     --substitutions=_REGION=europe-west1,_AR_REPO=banco
-#
-# Why $BUILD_ID (not $SHORT_SHA): SHORT_SHA is empty on manual submit and some
-# triggers → docker tag ends with ":" only → exit status 125.
+# Trigger settings:
+#   Configuration file: cloudbuild.yaml (this file)
+#   Build context / directory: .  (repository root)
 
 substitutions:
   _REGION: europe-west1
@@ -19,7 +17,7 @@ steps:
     args:
       - build
       - -f
-      - deploy/gcp/Dockerfile.api
+      - Dockerfile
       - -t
       - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/${_IMAGE_NAME}:$BUILD_ID
       - -t
