@@ -30,7 +30,7 @@
 | 18 | Staging validation (P0 smoke, secrets) | pending | [WAVE-P0-STAGING-VALIDATION.md](../maintenance/WAVE-P0-STAGING-VALIDATION.md) |
 | 19 | EAS & store release (preview/production profiles) | pending | [EXPO-EAS-PRODUCTION-CHECKLIST.md](./EXPO-EAS-PRODUCTION-CHECKLIST.md) |
 | 20 | Observability & health probes | pending | [OBSERVABILITY-RUNBOOK.md](./OBSERVABILITY-RUNBOOK.md) |
-| 21 | RC sign-off & launch GO/NO-GO | pending | [RELEASE-CANDIDATE-FINAL.md](./RELEASE-CANDIDATE-FINAL.md) |
+| 21 | RC sign-off & launch GO/NO-GO | **in_progress** | [RELEASE-CANDIDATE-FINAL.md](./RELEASE-CANDIDATE-FINAL.md) · [FULL-STRICT-AUDIT-REPORT.md](./FULL-STRICT-AUDIT-REPORT.md) |
 
 **Status values:** `pending` · `in_progress` · `pass` · `pass_with_fixes` · `blocked`
 

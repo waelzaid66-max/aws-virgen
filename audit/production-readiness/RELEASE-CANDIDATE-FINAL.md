@@ -1,8 +1,9 @@
 ﻿# Release candidate — final gate
 
-**Date:** 2026-07-08 (consolidation pass)  
-**Branch:** `main` (pending push)  
-**Theme:** Maintenance, deploy/launch documentation, mobile performance/resilience — **no listing publish algorithm changes**.
+**Date:** 2026-07-08 (strict audit pass)  
+**Branch:** `main` @ `a20d6fc`  
+**Theme:** Maintenance, deploy/launch documentation, mobile performance/resilience — **no listing publish algorithm changes**.  
+**Full report:** [FULL-STRICT-AUDIT-REPORT.md](./FULL-STRICT-AUDIT-REPORT.md)
 
 ## Decision
 
@@ -17,13 +18,16 @@
 
 | # | Item | Status |
 |---|------|--------|
-| 1 | `pnpm install` lockfile consistent | Run in CI / locally |
-| 2 | Mobile unit tests (`icons`, `lib-hardening`, `mobile-resilience`) | Required green |
-| 3 | `node scripts/production-confidence-check.mjs` | Required green |
-| 4 | CI workflow (`.github/workflows/ci.yml`) aligned with workspaces | Committed |
-| 5 | Listing publish smoke on staging device | **Human** |
-| 6 | Production GCP + EAS secrets not in repo | **User staging-only** |
-| 7 | `audit/rc1/*.log` excluded from release commit | Yes |
+| 1 | `pnpm install` lockfile consistent | CI `--frozen-lockfile`; local OK |
+| 2 | Mobile unit tests (`icons`, `lib-hardening`, `mobile-resilience`) | **PASS 23/23** (2026-07-08) |
+| 3 | `pnpm run typecheck` (all packages) | **PASS** (~17.5 min Windows) |
+| 4 | `pnpm run lint` | **PASS** |
+| 5 | `node scripts/production-confidence-check.mjs --skip-typecheck` | **PASS 10/10** |
+| 6 | CI workflow on GitHub Actions | **Verify** — `gh auth login` locally blocked |
+| 7 | API vitest (Postgres) | **CI only** — not run on Windows dev |
+| 8 | Listing publish smoke on staging device | **Human** — required |
+| 9 | Production GCP + EAS secrets not in repo | **User staging-only** |
+| 10 | `audit/rc1/*.log` excluded from release commit | Yes |
 
 ## Listing publish
 
