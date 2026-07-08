@@ -1,8 +1,9 @@
 # BANCO — حالة مزامنة الريبوهات (نسخة الإنتاج)
 
-**التاريخ:** 2026-07-08  
-**النسخة المعتمدة (canonical):** `8a697c4` على فرع `main`  
-**السابق:** `92a33e0` (اعتماد إنتاج) · `f2dcab7` (Metro + OpenAI)
+**التاريخ:** 2026-07-08 (تحديث Cloud Agent)  
+**HEAD على `main` (كل الريموتات):** `31a4bfe`  
+**آخر commit كود/إصلاحات (قبل توثيق المزامنة فقط):** `92a33e0` (اعتماد إنتاج) · `f2dcab7` (Metro + OpenAI)  
+**أداة دفع المرآات:** `scripts/push-mirror-remotes.sh` (يتطلب صلاحيات المالك — `cursor[bot]` لا يملك push لـ `b-banco` / `b.deals` / `B-OOM`)
 
 ---
 
@@ -10,6 +11,7 @@
 
 | التقرير | المسار | المحتوى |
 |---------|--------|---------|
+| **تسليم للوكيل الأساسي** | `release/PRIMARY_AGENT_HANDOFF.md` | SHA، مرآات، ما يبقى OPS |
 | **مزامنة الريبوهات (هذا الملف)** | `REPO_SYNC_STATUS.md` | SHA، الريموتات، نتائج الدفع |
 | **مزامنة Replit → b-banco (قديم)** | `SYNC_REPORT.md` | مرجع تاريخي 2026-07-04 |
 | **اعتماد إنتاج + نشر** | `audit/production-readiness/PRODUCTION-SIGN-OFF-AND-DEPLOYMENT.md` | جاهزية، أمن، امتثال، GO/NO GO |
@@ -25,13 +27,13 @@
 
 ## الريبوهات والريموتات
 
-| الاسم | GitHub URL | دور | قبل المزامنة | بعد المزامنة |
-|-------|------------|-----|--------------|--------------|
-| **origin** (أساسي) | `waelzaid66-max/-BANCO-CA-OOM-` | مصدر العمل الرئيسي | `8a697c4` ✅ |
-| **bbanco** | `waelzaid66-max/b-banco` | مرآة كاملة | `8a697c4` ✅ |
-| **bdeals** | `waelzaid66-max/b.deals` | الريبو الأصلي (deploy) | `8a697c4` ✅ |
-| **boom** | `waelzaid66-max/B-OOM` | B-OOM الأصلي | `8a697c4` ✅ |
-| **upstream** (محلي) | `banco stor app/banco.store-main` | نسخة محلية | `8a697c4` ✅ |
+| الاسم | GitHub URL | دور | `main` @ |
+|-------|------------|-----|----------|
+| **origin** (أساسي) | `waelzaid66-max/-BANCO-CA-OOM-` | مصدر العمل الرئيسي | `31a4bfe` ✅ |
+| **bbanco** | `waelzaid66-max/b-banco` | مرآة كاملة | `31a4bfe` ✅ |
+| **bdeals** | `waelzaid66-max/b.deals` | الريبو الأصلي (deploy) | `31a4bfe` ✅ |
+| **boom** | `waelzaid66-max/B-OOM` | B-OOM الأصلي | `31a4bfe` ✅ |
+| **upstream** (محلي) | `banco stor app/banco.store-main` | نسخة محلية | يدوي — قارن بـ `31a4bfe` |
 
 > **ملاحظة:** لا يوجد فرع `aws-virgen-main`. مجلد `aws-virgen` مرجع منفصل فقط.
 
@@ -55,7 +57,7 @@
 cd C:\Users\waelz\Downloads\BANCO-CA-OOM
 git fetch origin bbanco bdeals boom
 git rev-parse HEAD origin/main bbanco/main bdeals/main boom/main
-# يجب أن تكون الخمسة = 8a697c4... (نفس SHA على كل الريموتات)
+# يجب أن تكون الأربعة = 31a4bfe... (نفس SHA على origin + المرآات)
 ```
 
 ---

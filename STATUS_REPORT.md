@@ -1,6 +1,6 @@
 # BANCO Store — Completion & Status Report
 
-_Last updated: 2026-07-08 — Production readiness phases 02–20 inspection closed; HEAD includes `facd6fc`+ readiness docs._
+_Last updated: 2026-07-08 — Production readiness phases 02–20 closed; product fixes through `92a33e0`; `main` HEAD `31a4bfe` (sync docs). See `REPO_SYNC_STATUS.md`._
 
 > **Release line:** `main` (see `git log -1`) — **23 mobile regression tests** via confidence script; phases index: `audit/production-readiness/README.md`. Staging smoke still **OPS** (secrets).
 
