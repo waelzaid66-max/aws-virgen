@@ -17,6 +17,10 @@ import {
 import { resolveEffectivePlan, type UserRole } from "./PlanService";
 import { createProviderCharge, type EgyptianRail } from "../lib/paymentProvider";
 import { invalidData, isUniqueViolation, notFound, toMoney } from "../lib/billing";
+import {
+  schedulePaymentSuccess,
+  notifyPaymentIntentFailed,
+} from "./BillingNotificationService";
 
 /** A subscription period is a fixed 30-day window. */
 const PERIOD_DAYS = 30;
@@ -182,7 +186,7 @@ export async function startSubscription(input: StartSubscriptionInput) {
   if (input.paymentMethod === "wallet") {
     let sub: SubscriptionRow;
     try {
-      sub = await db.transaction(async (tx) => {
+      const txResult = await db.transaction(async (tx) => {
         const [created] = await tx
           .insert(subscriptions)
           .values({
@@ -216,10 +220,28 @@ export async function startSubscription(input: StartSubscriptionInput) {
             .set({ transactionId: applied.transactionId })
             .where(eq(subscriptions.id, created.id))
             .returning();
-          return updated;
+          return {
+            sub: updated,
+            charge: {
+              transactionId: applied.transactionId,
+              balanceAfter: applied.balanceAfter,
+            },
+          };
         }
-        return created;
+        return { sub: created, charge: null as { transactionId: string; balanceAfter: string } | null };
       });
+      sub = txResult.sub;
+      if (txResult.charge) {
+        schedulePaymentSuccess({
+          userId: input.userId,
+          kind: "subscription_charge",
+          amount: price,
+          balanceAfter: txResult.charge.balanceAfter,
+          transactionId: txResult.charge.transactionId,
+          description: `Subscription: ${plan.name} (${PERIOD_DAYS}d)`,
+          planName: plan.name,
+        });
+      }
     } catch (err) {
       // Lost race for the one-active-subscription slot.
       if (isUniqueViolation(err)) {
@@ -358,7 +380,7 @@ export async function settleSubscriptionIntentByWebhook(
   }
 
   try {
-    await db.transaction(async (tx) => {
+    const settled = await db.transaction(async (tx) => {
       await applyTransaction(tx, {
         userId,
         type: "wallet_topup",
@@ -410,6 +432,21 @@ export async function settleSubscriptionIntentByWebhook(
         .update(paymentIntents)
         .set({ status: "completed", completedAt: new Date() })
         .where(and(eq(paymentIntents.id, intent.id), eq(paymentIntents.status, "pending")));
+
+      return {
+        transactionId: charge.transactionId,
+        balanceAfter: charge.balanceAfter,
+      };
+    });
+
+    schedulePaymentSuccess({
+      userId,
+      kind: "subscription_charge",
+      amount: intent.amount,
+      balanceAfter: settled.balanceAfter,
+      transactionId: settled.transactionId,
+      description: `Subscription: ${plan.name} (${PERIOD_DAYS}d)`,
+      planName: plan.name,
     });
   } catch (err) {
     if (isUniqueViolation(err)) {
@@ -423,10 +460,15 @@ export async function settleSubscriptionIntentByWebhook(
 
 /** Mark a pending subscription intent failed (cancelled/declined webhook). No money moves. */
 export async function markSubscriptionIntentFailed(intentId: string): Promise<void> {
-  await db
+  const updated = await db
     .update(paymentIntents)
     .set({ status: "failed" })
-    .where(and(eq(paymentIntents.id, intentId), eq(paymentIntents.status, "pending")));
+    .where(and(eq(paymentIntents.id, intentId), eq(paymentIntents.status, "pending")))
+    .returning({ id: paymentIntents.id });
+
+  if (updated.length > 0) {
+    await notifyPaymentIntentFailed(intentId);
+  }
 }
 
 /* ── cancel ────────────────────────────────────────────── */

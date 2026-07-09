@@ -10,10 +10,13 @@ import {
 
 import {
   type Category,
+  type IndustrialType,
   apiCategoryFor,
   industrialGroupForCategory,
 } from "@/components/CategoryTabs";
 import { engineByKey } from "@/constants/engines";
+import { DEFAULT_MARKET_COUNTRY } from "@/constants/listingCreateTaxonomy";
+import { DEFAULT_NEAR_RADIUS_KM } from "@/lib/nearMe";
 
 /** Result ordering — mirrors the backend SearchListingsSort enum 1:1. */
 export type SearchSort =
@@ -56,6 +59,15 @@ export interface SearchCriteria {
   /** Industrial attribute filters. */
   industry: SearchListingsIndustry | null;
   originType: SearchListingsOriginType | null;
+  /** Facilities/materials sub-type within the industrial group ("all" = whole group). */
+  industrialType: IndustrialType;
+  /** UI-only market selector for rental-term chips (not sent to API). */
+  marketCountry: string;
+  /** Near-me geo filter — all three coords + radius sent when enabled. */
+  nearMeEnabled: boolean;
+  nearLat: number | null;
+  nearLng: number | null;
+  nearRadiusKm: number;
 }
 
 export const DEFAULT_CRITERIA: SearchCriteria = {
@@ -76,6 +88,12 @@ export const DEFAULT_CRITERIA: SearchCriteria = {
   maxYear: "",
   industry: null,
   originType: null,
+  industrialType: "all",
+  marketCountry: DEFAULT_MARKET_COUNTRY,
+  nearMeEnabled: false,
+  nearLat: null,
+  nearLng: null,
+  nearRadiusKm: DEFAULT_NEAR_RADIUS_KM,
 };
 
 /**
@@ -101,7 +119,9 @@ export function hasActiveCriteria(c: SearchCriteria): boolean {
     !!c.minYear ||
     !!c.maxYear ||
     !!c.industry ||
-    !!c.originType
+    !!c.originType ||
+    c.industrialType !== "all" ||
+    c.nearMeEnabled
   );
 }
 
@@ -129,6 +149,12 @@ export function criteriaKey(c: SearchCriteria): string {
     c.maxYear,
     c.industry,
     c.originType,
+    c.industrialType,
+    c.marketCountry,
+    c.nearMeEnabled,
+    c.nearLat,
+    c.nearLng,
+    c.nearRadiusKm,
   ]);
 }
 
@@ -155,7 +181,10 @@ export function buildSearchParams(
   // split by industrial_type — filter by the whole group so paginated section
   // results never false-empty and the two groups never bleed together.
   const group = industrialGroupForCategory(c.category);
-  if (group) sp.industrial_type = group.join(",");
+  if (group) {
+    sp.industrial_type =
+      c.industrialType === "all" ? group.join(",") : c.industrialType;
+  }
 
   // Engine chip params (condition / payment_plan / property_type / compound / …).
   const engine = engineByKey(c.category, c.engineKey);
@@ -185,6 +214,17 @@ export function buildSearchParams(
 
   if (c.industry) sp.industry = c.industry;
   if (c.originType) sp.origin_type = c.originType;
+
+  if (
+    c.nearMeEnabled &&
+    c.nearLat != null &&
+    c.nearLng != null &&
+    c.nearRadiusKm > 0
+  ) {
+    sp.near_lat = c.nearLat;
+    sp.near_lng = c.nearLng;
+    sp.radius_km = c.nearRadiusKm;
+  }
 
   if (cursor) sp.cursor = cursor;
   return sp;

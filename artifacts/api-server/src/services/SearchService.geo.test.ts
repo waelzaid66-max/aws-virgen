@@ -1,6 +1,6 @@
 import { describe, it, expect, afterAll } from "vitest";
 import { eq, isNotNull } from "drizzle-orm";
-import { searchListings } from "./SearchService";
+import { searchListings, mapClusters } from "./SearchService";
 import { db, createUser, deleteUsers, uniq, randomUUID } from "../__tests__/helpers";
 import { listings, listingMedia, locations } from "@workspace/db/schema";
 
@@ -89,5 +89,53 @@ describe("SearchService — near-me / radius filter", () => {
     expect(allIds).toContain(near);
     expect(allIds).toContain(viaCentroid);
     expect(allIds).toContain(far);
+  });
+
+  it("mapClusters honours the same near-me radius as list search", async () => {
+    const [loc] = await db
+      .select()
+      .from(locations)
+      .where(isNotNull(locations.latitude))
+      .limit(1);
+    expect(loc).toBeTruthy();
+    const centerLat = Number(loc.latitude);
+    const centerLng = Number(loc.longitude);
+
+    const seller = await createUser();
+    uids.push(seller);
+    const token = uniq("geomap");
+
+    const near = await mkListing(seller, token, "near", {
+      lat: centerLat,
+      lng: centerLng,
+      locationId: null,
+    });
+    const far = await mkListing(seller, token, "far", {
+      lat: centerLat + 5,
+      lng: centerLng + 5,
+      locationId: null,
+    });
+
+    const bounds = {
+      min_lat: centerLat - 2,
+      max_lat: centerLat + 2,
+      min_lng: centerLng - 2,
+      max_lng: centerLng + 2,
+    };
+    const clusters = await mapClusters(
+      {
+        search_term: token,
+        near_lat: centerLat,
+        near_lng: centerLng,
+        radius_km: 50,
+      },
+      bounds,
+      12,
+    );
+    const pinIds = clusters
+      .filter((c) => c.count === 1 && c.listing_id)
+      .map((c) => c.listing_id as string);
+    expect(pinIds).toContain(near);
+    expect(pinIds).not.toContain(far);
   });
 });

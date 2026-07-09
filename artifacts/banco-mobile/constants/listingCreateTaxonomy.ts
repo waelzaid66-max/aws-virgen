@@ -98,6 +98,8 @@ export const PROPERTY_TYPES: { value: string; en: string; ar: string }[] = [
   { value: "office", en: "Office", ar: "مكتب" },
   { value: "clinic", en: "Clinic", ar: "عيادة" },
   { value: "shop", en: "Shop", ar: "محل" },
+  { value: "warehouse", en: "Warehouse", ar: "مستودع" },
+  { value: "commercial_land", en: "Commercial land", ar: "أرض تجارية" },
   { value: "land", en: "Land", ar: "أرض" },
 ];
 

@@ -1,11 +1,19 @@
 import type { Request, Response } from "express";
 import { Readable } from "stream";
-import { and, eq, like, or } from "drizzle-orm";
+import { and, eq, or, sql } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { listingMedia, listings, users } from "@workspace/db/schema";
-import { ObjectNotFoundError } from "../lib/objectStorage";
+import { ObjectNotFoundError, UploadOwnershipError } from "../lib/objectStorage";
 import { getObjectStorageService } from "../lib/objectStorageProvider";
 import { publicVisibilityConditions } from "../lib/feedVisibility";
+import {
+  recordUploadClaim,
+  assertCallerMayUseUpload,
+  consumeUploadClaim,
+  extendUploadClaimAfterVerify,
+  parseServingWildcard,
+  servingWildcardToObjectPath,
+} from "../lib/uploadClaims";
 import {
   successResponse,
   errorResponse,
@@ -46,6 +54,11 @@ const ALLOWED_CONTENT_TYPES = new Set([
 
 const UPLOADS_PATH_PREFIX = "/api/v1/uploads/objects/";
 
+/** Escape `%`, `_`, and `\` so user-supplied path segments cannot widen SQL LIKE. */
+function escapeLikeLiteral(segment: string): string {
+  return segment.replace(/\\/g, "\\\\").replace(/%/g, "\\%").replace(/_/g, "\\_");
+}
+
 const objectStorageService = getObjectStorageService();
 
 /**
@@ -59,7 +72,7 @@ const objectStorageService = getObjectStorageService();
  * creation time.
  */
 async function isLegacyListingMedia(wildcardPath: string): Promise<boolean> {
-  const urlSuffix = `%${UPLOADS_PATH_PREFIX}${wildcardPath}`;
+  const urlSuffix = `%${UPLOADS_PATH_PREFIX}${escapeLikeLiteral(wildcardPath)}`;
   const [row] = await db
     .select({ id: listingMedia.id })
     .from(listingMedia)
@@ -69,8 +82,8 @@ async function isLegacyListingMedia(wildcardPath: string): Promise<boolean> {
       and(
         eq(listings.status, "active"),
         or(
-          like(listingMedia.url, urlSuffix),
-          like(listingMedia.thumbnailUrl, urlSuffix)
+          sql`${listingMedia.url} LIKE ${urlSuffix} ESCAPE '\\'`,
+          sql`${listingMedia.thumbnailUrl} LIKE ${urlSuffix} ESCAPE '\\'`
         ),
         ...publicVisibilityConditions()
       )
@@ -87,9 +100,15 @@ async function isLegacyListingMedia(wildcardPath: string): Promise<boolean> {
  * listing media record. The client sends JSON metadata only — never the file.
  */
 export async function requestUploadUrlHandler(req: Request, res: Response): Promise<Response> {
+  const clerkId = req.userId;
+  if (!clerkId) {
+    return res.status(401).json(errorResponse("UNAUTHORIZED", "Authentication required"));
+  }
   try {
     const uploadURL = await objectStorageService.getObjectEntityUploadURL();
     const objectPath = objectStorageService.normalizeObjectEntityPath(uploadURL);
+
+    await recordUploadClaim(objectPath, clerkId);
 
     const servingPath = `${UPLOADS_PATH_PREFIX}${objectPath.replace(/^\/objects\//, "")}`;
     const proto =
@@ -212,6 +231,8 @@ export async function promoteUploadHandler(req: Request, res: Response): Promise
 
   const { url } = parsed.data;
   try {
+    await assertCallerMayUseUpload(url, ownerId);
+
     const meta = await objectStorageService.getServingObjectMetadata(url);
     if (!meta) {
       return res
@@ -234,10 +255,17 @@ export async function promoteUploadHandler(req: Request, res: Response): Promise
     }
 
     await objectStorageService.promoteServingUrlToPublic(url, ownerId);
+    const wildcard = parseServingWildcard(url);
+    if (wildcard) {
+      await consumeUploadClaim(servingWildcardToObjectPath(wildcard));
+    }
 
     const result = validateResponse(PromoteUploadResultSchema, { url, promoted: true });
     return res.status(200).json(successResponse(result));
   } catch (error) {
+    if (error instanceof UploadOwnershipError) {
+      return res.status(403).json(errorResponse("FORBIDDEN", error.message));
+    }
     if (error instanceof ObjectNotFoundError) {
       return res.status(404).json(errorResponse("NOT_FOUND", "Upload not found"));
     }
@@ -274,6 +302,8 @@ export async function verifyUploadHandler(req: Request, res: Response): Promise<
 
   const { url } = parsed.data;
   try {
+    await assertCallerMayUseUpload(url, req.userId);
+
     const meta = await objectStorageService.getServingObjectMetadata(url);
     if (!meta) {
       return res
@@ -311,6 +341,14 @@ export async function verifyUploadHandler(req: Request, res: Response): Promise<
         );
     }
 
+    const wildcard = parseServingWildcard(url);
+    if (wildcard) {
+      await extendUploadClaimAfterVerify(
+        servingWildcardToObjectPath(wildcard),
+        req.userId,
+      );
+    }
+
     const result = validateResponse(VerifyUploadResultSchema, {
       url,
       ok: true,
@@ -320,6 +358,9 @@ export async function verifyUploadHandler(req: Request, res: Response): Promise<
     });
     return res.status(200).json(successResponse(result));
   } catch (error) {
+    if (error instanceof UploadOwnershipError) {
+      return res.status(403).json(errorResponse("FORBIDDEN", error.message));
+    }
     if (error instanceof ObjectNotFoundError) {
       return res.status(404).json(errorResponse("NOT_FOUND", "Upload not found"));
     }

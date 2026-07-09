@@ -97,6 +97,14 @@ function RootLayoutNav() {
         options={{ headerShown: false, animation: "slide_from_bottom" }}
       />
       <Stack.Screen
+        name="listings/edit/[id]"
+        options={{ headerShown: false, animation: "slide_from_right" }}
+      />
+      <Stack.Screen
+        name="rentals/hub"
+        options={{ headerShown: false, animation: "slide_from_right" }}
+      />
+      <Stack.Screen
         name="business/onboarding"
         options={{ headerShown: false, animation: "slide_from_bottom" }}
       />
@@ -142,6 +150,22 @@ function RootLayoutNav() {
       />
       <Stack.Screen
         name="business/market/index"
+        options={{ headerShown: false, animation: "slide_from_right" }}
+      />
+      <Stack.Screen
+        name="billing"
+        options={{ headerShown: false, animation: "slide_from_right" }}
+      />
+      <Stack.Screen
+        name="wallet"
+        options={{ headerShown: false, animation: "slide_from_right" }}
+      />
+      <Stack.Screen
+        name="invoices"
+        options={{ headerShown: false, animation: "slide_from_right" }}
+      />
+      <Stack.Screen
+        name="invoices/[id]"
         options={{ headerShown: false, animation: "slide_from_right" }}
       />
       <Stack.Screen

@@ -293,6 +293,42 @@ export function buildAttributeConditions(f: {
   return conditions;
 }
 
+/**
+ * Near-me / radius filter shared by list search and map clusters. ADDITIVE —
+ * only when all three geo params are present. Effective coordinate = listing
+ * override, else the joined area centroid.
+ */
+export function nearMeConditions(parsed: {
+  near_lat?: number;
+  near_lng?: number;
+  radius_km?: number;
+}): SQL[] {
+  if (
+    parsed.near_lat == null ||
+    parsed.near_lng == null ||
+    parsed.radius_km == null ||
+    parsed.radius_km <= 0
+  ) {
+    return [];
+  }
+  const effLat = sql`COALESCE(${listings.latitude}, ${locations.latitude})`;
+  const effLng = sql`COALESCE(${listings.longitude}, ${locations.longitude})`;
+  const latDelta = parsed.radius_km / 111;
+  const cosLat = Math.max(Math.cos((parsed.near_lat * Math.PI) / 180), 0.01);
+  const lngDelta = parsed.radius_km / (111 * cosLat);
+  const distanceKm = sql`6371 * acos(LEAST(1, GREATEST(-1,
+    cos(radians(${parsed.near_lat})) * cos(radians(${effLat}))
+      * cos(radians(${effLng}) - radians(${parsed.near_lng}))
+    + sin(radians(${parsed.near_lat})) * sin(radians(${effLat}))
+  )))`;
+  return [
+    sql`${effLat} IS NOT NULL AND ${effLng} IS NOT NULL`,
+    sql`${effLat} BETWEEN ${parsed.near_lat - latDelta} AND ${parsed.near_lat + latDelta}`,
+    sql`${effLng} BETWEEN ${parsed.near_lng - lngDelta} AND ${parsed.near_lng + lngDelta}`,
+    sql`${distanceKm} <= ${parsed.radius_km}`,
+  ];
+}
+
 export async function searchListings(
   parsed: ParsedSearchQuery,
   cursor?: string,
@@ -360,28 +396,7 @@ export async function searchListings(
   // compound / furnished / fuel / transmission / brand / model / year /
   // industry / origin) — shared with the feed, pushed into the DB.
   conditions.push(...buildAttributeConditions(parsed));
-
-  // Near-me / radius filter (ADDITIVE — only when all three geo params are
-  // present, so existing search/feed behaviour is byte-identical without them).
-  // Effective coordinate = listing override, else the joined area centroid
-  // (locations LEFT JOIN below is 1:1 on location_id, so it never fans rows out).
-  // A cheap bounding box prunes first; exact Haversine (km, R=6371) confirms.
-  if (parsed.near_lat != null && parsed.near_lng != null && parsed.radius_km != null && parsed.radius_km > 0) {
-    const effLat = sql`COALESCE(${listings.latitude}, ${locations.latitude})`;
-    const effLng = sql`COALESCE(${listings.longitude}, ${locations.longitude})`;
-    const latDelta = parsed.radius_km / 111; // ~111 km per degree of latitude
-    const cosLat = Math.max(Math.cos((parsed.near_lat * Math.PI) / 180), 0.01);
-    const lngDelta = parsed.radius_km / (111 * cosLat);
-    const distanceKm = sql`6371 * acos(LEAST(1, GREATEST(-1,
-      cos(radians(${parsed.near_lat})) * cos(radians(${effLat}))
-        * cos(radians(${effLng}) - radians(${parsed.near_lng}))
-      + sin(radians(${parsed.near_lat})) * sin(radians(${effLat}))
-    )))`;
-    conditions.push(sql`${effLat} IS NOT NULL AND ${effLng} IS NOT NULL`);
-    conditions.push(sql`${effLat} BETWEEN ${parsed.near_lat - latDelta} AND ${parsed.near_lat + latDelta}`);
-    conditions.push(sql`${effLng} BETWEEN ${parsed.near_lng - lngDelta} AND ${parsed.near_lng + lngDelta}`);
-    conditions.push(sql`${distanceKm} <= ${parsed.radius_km}`);
-  }
+  conditions.push(...nearMeConditions(parsed));
 
   // Popularity = lifetime views + clicks (interactions is 1:1 with a listing,
   // so the LEFT JOIN never fans rows out and is safe to keep for every sort).
@@ -508,6 +523,7 @@ export async function mapClusters(
   }
   conditions.push(...publicVisibilityConditions());
   conditions.push(...buildAttributeConditions(parsed));
+  conditions.push(...nearMeConditions(parsed));
 
   // Effective coordinate (listing override → area centroid), as float for math.
   const effLat = sql`COALESCE(${listings.latitude}, ${locations.latitude})::float8`;

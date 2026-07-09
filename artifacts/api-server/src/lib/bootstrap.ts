@@ -1,4 +1,4 @@
-import { db } from "@workspace/db";
+import { db, ensureSchemaPatches } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { logger } from "./logger";
 
@@ -16,6 +16,12 @@ import { logger } from "./logger";
  * duplicate detection degrades gracefully until the extension/DB is available.
  */
 export async function ensureDbExtensions(): Promise<void> {
+  try {
+    await ensureSchemaPatches();
+  } catch (err) {
+    logger.error({ err }, "ensureSchemaPatches failed; continuing boot");
+  }
+
   try {
     await db.execute(sql`CREATE EXTENSION IF NOT EXISTS pg_trgm`);
   } catch (err) {

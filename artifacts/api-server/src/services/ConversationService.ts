@@ -11,6 +11,12 @@ import { createNotification } from "./NotificationService";
 import { checkMessageRate, checkConversationRate } from "./AbuseService";
 import { publicVisibilityConditions } from "../lib/feedVisibility";
 import { getObjectStorageService } from "../lib/objectStorageProvider";
+import {
+  assertCallerMayUseUpload,
+  consumeUploadClaim,
+  parseServingWildcard,
+  servingWildcardToObjectPath,
+} from "../lib/uploadClaims";
 
 const objectStorageService = getObjectStorageService();
 
@@ -415,7 +421,10 @@ export async function sendMessage(
   // Best-effort: promoteServingUrlToPublic swallows failures and no-ops URLs
   // that aren't our own first-party uploads.
   if (msg.mediaUrl) {
-    await objectStorageService.promoteServingUrlToPublic(msg.mediaUrl, userId);
+    await assertCallerMayUseUpload(msg.mediaUrl, clerkId);
+    await objectStorageService.promoteServingUrlToPublic(msg.mediaUrl, clerkId);
+    const wildcard = parseServingWildcard(msg.mediaUrl);
+    if (wildcard) await consumeUploadClaim(servingWildcardToObjectPath(wildcard));
   }
 
   // Inbox preview: the text, else a glyph for the attachment / shared listing.

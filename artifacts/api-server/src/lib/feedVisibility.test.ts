@@ -33,6 +33,51 @@ describe("publicVisibilityConditions", () => {
     expect(visible).not.toContain(bannedId);
     expect(visible).toHaveLength(1);
   });
+
+  it("suppresses listings from soft-deleted sellers", async () => {
+    const activeSeller = await createUser();
+    const deletedSeller = await createUser();
+    uids.push(activeSeller, deletedSeller);
+
+    await db
+      .update(users)
+      .set({ deletedAt: new Date() })
+      .where(eq(users.id, deletedSeller));
+
+    const activeListingId = randomUUID();
+    const deletedSellerListingId = randomUUID();
+    await db.insert(listings).values([
+      {
+        id: activeListingId,
+        userId: activeSeller,
+        title: uniq("active-seller"),
+        category: "car",
+        basePriceCash: "100000",
+        location: "Cairo",
+      },
+      {
+        id: deletedSellerListingId,
+        userId: deletedSeller,
+        title: uniq("deleted-seller"),
+        category: "car",
+        basePriceCash: "100000",
+        location: "Cairo",
+      },
+    ]);
+
+    const rows = await db
+      .select({ id: listings.id })
+      .from(listings)
+      .innerJoin(users, eq(listings.userId, users.id))
+      .where(
+        and(inArray(listings.id, [activeListingId, deletedSellerListingId]), ...publicVisibilityConditions())
+      );
+
+    const visible = rows.map((r) => r.id);
+    expect(visible).toContain(activeListingId);
+    expect(visible).not.toContain(deletedSellerListingId);
+    expect(visible).toHaveLength(1);
+  });
 });
 
 afterAll(async () => {

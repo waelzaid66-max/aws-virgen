@@ -31,7 +31,7 @@ vi.mock("@aws-sdk/s3-request-presigner", () => ({
 
 import { S3ObjectStorageService } from "./objectStorage.s3";
 import { ObjectPermission } from "./objectAcl";
-import { ObjectNotFoundError } from "./objectStorage";
+import { ObjectNotFoundError, UploadOwnershipError } from "./objectStorage";
 
 function svc() {
   process.env.AWS_REGION = "eu-central-1";
@@ -121,6 +121,21 @@ describe("S3ObjectStorageService", () => {
       owner: "owner-1",
       visibility: "public",
     });
+  });
+
+  it("promoteServingUrlToPublic throws when ACL owner differs", async () => {
+    const s = svc();
+    send
+      .mockResolvedValueOnce({}) // HeadObject (getObjectEntityFile existence)
+      .mockResolvedValueOnce({
+        Metadata: { "acl-policy": JSON.stringify({ owner: "other-user", visibility: "private" }) },
+      });
+    await expect(
+      s.promoteServingUrlToPublic(
+        "https://banco.example/api/v1/uploads/objects/uploads/xyz",
+        "owner-1",
+      ),
+    ).rejects.toBeInstanceOf(UploadOwnershipError);
   });
 
   it("promoteServingUrlToPublic no-ops for a non-first-party URL", async () => {

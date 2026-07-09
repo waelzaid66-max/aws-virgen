@@ -1,15 +1,11 @@
 name: Deploy (AWS)
 
-# CD for the AWS deployment repo. Gated on the SAME checks as CI, then builds the
-# images, pushes to ECR, and triggers an SSM-driven deploy on the EC2 host. Runs
-# ONLY on a version tag (deploy from a tag, never a stray commit) or manually.
+# CD for AWS production. Gated on the same checks as CI, then ECR push + SSM deploy.
+# Prefer deploying from **aws-virgen** (EC2 clone path). This workflow also exists on
+# the primary monorepo for parity.
 #
-# Required repo secrets / vars:
-#   AWS_ROLE_ARN        (OIDC role to assume — no long-lived keys)
-#   AWS_REGION          (e.g. eu-central-1)
-#   ECR_REGISTRY        (<acct>.dkr.ecr.<region>.amazonaws.com)
-#   EC2_INSTANCE_ID     (target host, managed by SSM)
-#   SSM_PREFIX          (/banco/prod)
+# Required secrets/vars: AWS_ROLE_ARN, AWS_REGION, ECR_REGISTRY, EC2_INSTANCE_ID, SSM_PREFIX
+# Build-time vars: VITE_CLERK_PUBLISHABLE_KEY, VITE_API_BASE_URL
 
 on:
   push:
@@ -25,21 +21,26 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  id-token: write   # OIDC to AWS
+  id-token: write
   contents: read
 
 jobs:
   verify:
-    name: Verify (typecheck + build + tests)
+    name: Verify (typecheck + tests)
     runs-on: ubuntu-latest
     services:
       postgres:
         image: postgres:16
-        env: { POSTGRES_USER: postgres, POSTGRES_PASSWORD: postgres, POSTGRES_DB: banco_test }
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: banco_test
         ports: ["5432:5432"]
         options: >-
-          --health-cmd="pg_isready -U postgres" --health-interval=10s
-          --health-timeout=5s --health-retries=5
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/banco_test
       TZ: UTC
@@ -47,8 +48,10 @@ jobs:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
-        with: { node-version: 24, cache: pnpm }
-      - run: pnpm install --no-frozen-lockfile
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
       - run: pnpm run typecheck
       - name: Prepare test DB
         run: |

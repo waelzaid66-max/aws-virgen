@@ -21,6 +21,12 @@ import { getLinksForListing } from "./ListingLinkService";
 import { mintContactToken } from "./LeadService";
 import { publicVisibilityConditions } from "../lib/feedVisibility";
 import { getObjectStorageService } from "../lib/objectStorageProvider";
+import {
+  assertCallerMayUseUpload,
+  consumeUploadClaim,
+  parseServingWildcard,
+  servingWildcardToObjectPath,
+} from "../lib/uploadClaims";
 import { MEDIA_VERIFY_RETRYABLE } from "../lib/mediaVerify";
 import type { CreateListingSchema } from "../validators/schemas";
 import type { z } from "zod";
@@ -227,6 +233,10 @@ export async function createListing(
     objectStorageService.getServingObjectMetadata(url)
   );
 
+  for (const m of input.media) {
+    await assertCallerMayUseUpload(m.url, userId);
+  }
+
   // Ensure DB user exists
   const [user] = await db
     .select({ id: users.id, isVerified: users.isVerified, role: users.role })
@@ -412,9 +422,12 @@ export async function createListing(
   // failed promotion means the object won't be publicly accessible, but it
   // must not fail the listing creation that already committed.
   await Promise.all(
-    input.media.map((m) =>
-      objectStorageService.promoteServingUrlToPublic(m.url, userId)
-    )
+    input.media.map(async (m) => {
+      await assertCallerMayUseUpload(m.url, userId);
+      await objectStorageService.promoteServingUrlToPublic(m.url, userId);
+      const wildcard = parseServingWildcard(m.url);
+      if (wildcard) await consumeUploadClaim(servingWildcardToObjectPath(wildcard));
+    })
   );
 
   // Adaptive learning (best-effort, fire-and-forget): track free-form custom spec
@@ -712,7 +725,7 @@ export async function getSeoListing(listingId: string): Promise<SeoListing | nul
       bumped_at: listings.bumpedAt,
     })
     .from(listings)
-    .leftJoin(users, eq(listings.userId, users.id))
+    .innerJoin(users, eq(listings.userId, users.id))
     .where(
       and(
         eq(listings.id, listingId),
@@ -772,7 +785,7 @@ export async function getSitemapListings(
       bumped_at: listings.bumpedAt,
     })
     .from(listings)
-    .leftJoin(users, eq(listings.userId, users.id))
+    .innerJoin(users, eq(listings.userId, users.id))
     .where(and(eq(listings.status, "active"), ...publicVisibilityConditions()))
     .orderBy(desc(sql`COALESCE(${listings.bumpedAt}, ${listings.createdAt})`))
     .limit(limit);

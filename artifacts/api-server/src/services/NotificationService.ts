@@ -16,7 +16,11 @@ export type NotificationType =
   | "investment"
   | "global_supply"
   // Additive: new short-stay booking request on a furnished/daily listing.
-  | "booking";
+  | "booking"
+  // Billing (Wave B3): PSP settlement, failed checkout, subscription renewal.
+  | "payment_success"
+  | "payment_failed"
+  | "subscription_expiring";
 
 export interface NotificationDTO {
   id: string;

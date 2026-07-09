@@ -9,6 +9,7 @@ import {
 } from "./WalletService";
 import { createProviderCharge, type EgyptianRail } from "../lib/paymentProvider";
 import { invalidData, isUniqueViolation, notFound, toMoney } from "../lib/billing";
+import { schedulePaymentSuccess, notifyPaymentIntentFailed } from "./BillingNotificationService";
 
 export type TopupMethod = EgyptianRail;
 
@@ -177,8 +178,8 @@ export async function settleTopupIntent(
   }
 
   try {
-    await db.transaction(async (tx) => {
-      await applyTransaction(tx, {
+    const applied = await db.transaction(async (tx) => {
+      const result = await applyTransaction(tx, {
         userId: intent.userId,
         type: "wallet_topup",
         direction: "credit",
@@ -207,7 +208,20 @@ export async function settleTopupIntent(
             eq(paymentIntents.status, "pending")
           )
         );
+
+      return result;
     });
+
+    if (!applied.replayed) {
+      schedulePaymentSuccess({
+        userId: intent.userId,
+        kind: "wallet_topup",
+        amount: intent.amount,
+        balanceAfter: applied.balanceAfter,
+        transactionId: applied.transactionId,
+        description: `Wallet top-up via ${intent.method}`,
+      });
+    }
   } catch (err) {
     // Concurrent delivery already credited under the same idempotency key.
     if (isUniqueViolation(err)) return;
@@ -217,10 +231,15 @@ export async function settleTopupIntent(
 
 /** Mark a pending top-up intent failed (cancelled/declined webhook). No money moves. */
 export async function markTopupIntentFailed(intentId: string): Promise<void> {
-  await db
+  const updated = await db
     .update(paymentIntents)
     .set({ status: "failed" })
     .where(
       and(eq(paymentIntents.id, intentId), eq(paymentIntents.status, "pending"))
-    );
+    )
+    .returning({ id: paymentIntents.id });
+
+  if (updated.length > 0) {
+    await notifyPaymentIntentFailed(intentId);
+  }
 }

@@ -541,6 +541,10 @@ export const NotificationTypeEnum = z.enum([
   "review",
   "investment",
   "global_supply",
+  "booking",
+  "payment_success",
+  "payment_failed",
+  "subscription_expiring",
 ]);
 
 export const NotificationItemSchema = z
@@ -1356,6 +1360,18 @@ export const TopupCreateSchema = z.object({
 export const WalletTransactionsQuerySchema = z.object({
   cursor: z.string().optional(),
   limit: z.coerce.number().min(1).max(50).default(20),
+  from: z.string().optional(),
+  to: z.string().optional(),
+  type: z
+    .enum([
+      "wallet_topup",
+      "boost_charge",
+      "subscription_charge",
+      "lead_charge",
+      "refund",
+      "adjustment",
+    ])
+    .optional(),
 });
 
 export const WalletStateSchema = z

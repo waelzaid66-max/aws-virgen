@@ -9,7 +9,7 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { Readable } from "stream";
 import { randomUUID } from "crypto";
 import { ObjectAclPolicy, ObjectPermission } from "./objectAcl";
-import { ObjectNotFoundError } from "./objectStorage";
+import { ObjectNotFoundError, UploadOwnershipError } from "./objectStorage";
 import { logger } from "./logger";
 import { readWithRetry } from "./mediaVerify";
 
@@ -198,10 +198,25 @@ export class S3ObjectStorageService {
     try {
       const ref = await this.getObjectEntityFile(`/objects/${wildcardPath}`);
       const existing = await this.getAclPolicy(ref);
-      if (existing && existing.owner !== ownerId) return;
+      if (existing && existing.owner !== ownerId) {
+        throw new UploadOwnershipError();
+      }
       await this.setAclPolicy(ref, { owner: ownerId, visibility: "public" });
     } catch (err) {
+      if (err instanceof UploadOwnershipError) throw err;
       logger.warn({ err, wildcardPath, ownerId }, "promoteServingUrlToPublic(s3): failed to set ACL");
+    }
+  }
+
+  async getAclOwnerForServingUrl(servingUrl: string): Promise<string | null> {
+    const wildcardPath = parseServingWildcard(servingUrl);
+    if (!wildcardPath) return null;
+    try {
+      const ref = await this.getObjectEntityFile(`/objects/${wildcardPath}`);
+      const policy = await this.getAclPolicy(ref);
+      return policy?.owner ?? null;
+    } catch {
+      return null;
     }
   }
 

@@ -648,7 +648,7 @@ components:
           type: string
         type:
           type: string
-          enum: [message, lead, system, rfq, new_match, price_drop, comment, review, investment, global_supply, booking]
+          enum: [message, lead, system, rfq, new_match, price_drop, comment, review, investment, global_supply, booking, payment_success, payment_failed, subscription_expiring]
         title:
           type: string
         body:
@@ -795,7 +795,7 @@ components:
       properties:
         type:
           type: string
-          enum: [message, lead, system, rfq, new_match, price_drop, comment, review, investment, global_supply, booking]
+          enum: [message, lead, system, rfq, new_match, price_drop, comment, review, investment, global_supply, booking, payment_success, payment_failed, subscription_expiring]
         in_app:
           type: boolean
         email:
@@ -4445,6 +4445,23 @@ paths:
             type: string
             enum: [local, imported]
         - in: query
+          name: near_lat
+          description: Near-me anchor latitude (requires near_lng and radius_km).
+          schema:
+            type: number
+        - in: query
+          name: near_lng
+          description: Near-me anchor longitude (requires near_lat and radius_km).
+          schema:
+            type: number
+        - in: query
+          name: radius_km
+          description: Search radius in kilometres from the near-me anchor.
+          schema:
+            type: number
+            minimum: 0.1
+            maximum: 500
+        - in: query
           name: sort
           description: >-
             Result ordering. recommended (default) and newest use the created_at
@@ -4589,6 +4606,18 @@ paths:
         - in: query
           name: origin_type
           schema: { type: string, enum: [local, imported] }
+        - in: query
+          name: near_lat
+          description: Near-me anchor latitude (requires near_lng and radius_km).
+          schema: { type: number }
+        - in: query
+          name: near_lng
+          description: Near-me anchor longitude (requires near_lat and radius_km).
+          schema: { type: number }
+        - in: query
+          name: radius_km
+          description: Search radius in kilometres from the near-me anchor.
+          schema: { type: number, minimum: 0.1, maximum: 500 }
       responses:
         "200":
           description: Map clusters
@@ -6244,6 +6273,34 @@ paths:
             minimum: 1
             maximum: 50
             default: 20
+        - name: from
+          in: query
+          required: false
+          description: ISO-8601 lower bound (inclusive) on created_at
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          required: false
+          description: ISO-8601 upper bound (inclusive) on created_at
+          schema:
+            type: string
+            format: date-time
+        - name: type
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              [
+                wallet_topup,
+                boost_charge,
+                subscription_charge,
+                lead_charge,
+                refund,
+                adjustment,
+              ]
       responses:
         "200":
           description: Transaction page
@@ -6503,6 +6560,31 @@ paths:
                   meta:
                     $ref: "#/components/schemas/Meta"
 
+  /v1/billing/invoices/{id}/pdf:
+    get:
+      operationId: getInvoicePdf
+      summary: Download a PDF copy of an invoice the caller owns
+      tags: [billing]
+      security:
+        - ClerkAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Invoice PDF
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: Invoice not found
+
   /v1/billing/invoices/{id}:
     get:
       operationId: getInvoice
@@ -6531,6 +6613,28 @@ paths:
                     nullable: true
                   meta:
                     $ref: "#/components/schemas/Meta"
+
+  /v1/billing/report.csv:
+    get:
+      operationId: getBillingReportCsv
+      summary: Monthly billing summary as CSV (ledger breakdown)
+      tags: [billing]
+      security:
+        - ClerkAuth: []
+      parameters:
+        - name: month
+          in: query
+          required: false
+          description: Report month as YYYY-MM (UTC). Defaults to the current month.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Billing report CSV
+          content:
+            text/csv:
+              schema:
+                type: string
 
   /v1/billing/report:
     get:

@@ -26,9 +26,15 @@ import {
 } from "@/components/CategoryTabs";
 import { brandLabel, type CarBrand } from "@/constants/cars";
 import { engineByKey, type EngineDef } from "@/constants/engines";
-import { INDUSTRY_TYPES, RENTAL_TERMS } from "@/constants/listingCreateTaxonomy";
+import { INDUSTRY_TYPES } from "@/constants/listingCreateTaxonomy";
 import { useI18n } from "@/context/LanguageContext";
 import { useColors } from "@/hooks/useColors";
+import {
+  MARKET_COUNTRIES,
+  marketCountryLabel,
+  rentalTermsForSearch,
+  sanitizeRentalTermForMarket,
+} from "@/lib/searchTaxonomy";
 import type {
   PaymentType,
   SearchCriteria,
@@ -87,6 +93,7 @@ interface FilterSheetProps {
   onUpdate: (partial: Partial<SearchCriteria>) => void;
   onOpenLocationPicker: () => void;
   onClearLocation: () => void;
+  onToggleNearMe: () => void;
   onClearAll: () => void;
 }
 
@@ -115,6 +122,7 @@ export function FilterSheet({
   onUpdate,
   onOpenLocationPicker,
   onClearLocation,
+  onToggleNearMe,
   onClearAll,
 }: FilterSheetProps) {
   const colors = useColors();
@@ -155,6 +163,7 @@ export function FilterSheet({
   const selectedEngine = engineByKey(criteria.category, criteria.engineKey);
   const showRentalTerms =
     isRealEstate && selectedEngine?.params.offer_type !== "sale";
+  const rentalTerms = rentalTermsForSearch(criteria.marketCountry);
 
   return (
     <Modal
@@ -434,12 +443,58 @@ export function FilterSheet({
                 while the sale (تمليك) engine chip is active (rent-only content). */}
             {showRentalTerms && (
               <>
+                <SectionLabel text={t("create.fields.market")} align={textAlign} colors={colors} />
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={[styles.chipRow, { flexDirection: rowDir }]}
+                >
+                  {MARKET_COUNTRIES.map((m) => {
+                    const active = criteria.marketCountry === m.value;
+                    return (
+                      <Pressable
+                        key={m.value}
+                        onPress={() =>
+                          onUpdate({
+                            marketCountry: m.value,
+                            rentalTerm: sanitizeRentalTermForMarket(
+                              criteria.rentalTerm,
+                              m.value,
+                            ),
+                          })
+                        }
+                        style={[
+                          styles.chip,
+                          {
+                            backgroundColor: active
+                              ? colors.primary
+                              : colors.secondary,
+                          },
+                        ]}
+                        testID={`filter-market-${m.value}`}
+                      >
+                        <AppText
+                          style={[
+                            styles.chipText,
+                            {
+                              color: active
+                                ? colors.primaryForeground
+                                : colors.mutedForeground,
+                            },
+                          ]}
+                        >
+                          {marketCountryLabel(m.value, isRTL)}
+                        </AppText>
+                      </Pressable>
+                    );
+                  })}
+                </ScrollView>
                 <SectionLabel text={t("create.fields.rentalTerm")} align={textAlign} colors={colors} />
                 <ToggleChipRow
-                  options={RENTAL_TERMS.map((r) => r.value)}
+                  options={rentalTerms.map((r) => r.value)}
                   selected={criteria.rentalTerm}
                   labelFor={(v) => {
-                    const def = RENTAL_TERMS.find((r) => r.value === v);
+                    const def = rentalTerms.find((r) => r.value === v);
                     return def ? (isRTL ? def.ar : def.en) : v;
                   }}
                   onToggle={(v) => onUpdate({ rentalTerm: v })}
@@ -526,6 +581,45 @@ export function FilterSheet({
                   color={colors.mutedForeground}
                 />
               )}
+            </Pressable>
+            <Pressable
+              onPress={onToggleNearMe}
+              style={[
+                styles.chip,
+                {
+                  alignSelf: "flex-start",
+                  marginTop: 8,
+                  backgroundColor: criteria.nearMeEnabled
+                    ? colors.primary
+                    : colors.secondary,
+                  flexDirection: rowDir,
+                  alignItems: "center",
+                  gap: 6,
+                },
+              ]}
+              testID="filter-near-me"
+            >
+              <Feather
+                name="map-pin"
+                size={14}
+                color={
+                  criteria.nearMeEnabled
+                    ? colors.primaryForeground
+                    : colors.mutedForeground
+                }
+              />
+              <AppText
+                style={[
+                  styles.chipText,
+                  {
+                    color: criteria.nearMeEnabled
+                      ? colors.primaryForeground
+                      : colors.mutedForeground,
+                  },
+                ]}
+              >
+                {t("search.nearMe")}
+              </AppText>
             </Pressable>
 
             {/* Price */}

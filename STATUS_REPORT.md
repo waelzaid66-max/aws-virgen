@@ -1,8 +1,8 @@
 # BANCO Store — Completion & Status Report
 
-_Last updated: 2026-07-02 — unified snapshot on B-OOM (local work + Replit workspace work on ONE history line, no divergence)._
+_Last updated: 2026-07-08 — Production readiness phases 02–20 closed; product fixes through `92a33e0`; `main` HEAD `31a4bfe` (sync docs). See `REPO_SYNC_STATUS.md`._
 
-> **Version unification:** the Replit workspace pushed its commits ON TOP of the previous B-OOM snapshot (fast-forward — zero conflicts). This repo now contains BOTH work streams: the local backend/contract work AND Replit's runtime fixes (header B-OOM animation, upload permission prompts + error handling, object-storage config fix, request-log de-dup, map UI viewport wiring, OpenAI key priority). Verified locally after unification: **recursive typecheck 0 errors across all 7 packages**.
+> **Release line:** `main` (see `git log -1`) — **23 mobile regression tests** via confidence script; phases index: `audit/production-readiness/README.md`. Staging smoke still **OPS** (secrets).
 
 This is the live status of the BANCO Store monorepo (Banco Mobile · Banco Admin · Banco Market/dealer-os · API Server · shared libs). It records what is **done and verified**, the **architecture**, and the **honest remaining items** with the reason each is or isn't locally verifiable.
 
@@ -10,7 +10,9 @@ This is the live status of the BANCO Store monorepo (Banco Mobile · Banco Admin
 
 ## 1. How verification works here
 
-- **Backend (api-server):** real integration tests on a real PostgreSQL — `pnpm --filter @workspace/api-server test`. Current state: **247 passed / 3 skipped / 0 failing**.
+- **Backend (api-server):** **295 passed / 3 skipped** (includes geo map/list parity, map clusters, rental_term, industrial isolation).
+- **Mobile regression:** **23 passed** (icons + lib-hardening + resilience).
+- **ESLint:** `pnpm run lint` on `scripts/**` — **0 errors** (Node globals include `URL` for staging smoke).
 - **Type safety (all surfaces):** `pnpm -r --if-present run typecheck` → **0 errors across 7 packages** (api-server, banco-mobile, admin-os, dealer-os, landing, mockup-sandbox, scripts).
 - **API contract:** `lib/api-spec/openapi.yaml` is the source of truth → `orval` regenerates the typed client (`lib/api-client-react`) + zod (`lib/api-zod`). Generated diffs this session were **purely additive (0 deletions)**.
 - **Build:** runs on CI (Linux). Locally on Windows the esbuild native binary differs, so **typecheck is the local proxy** for compilation.
@@ -31,6 +33,17 @@ This is the live status of the BANCO Store monorepo (Banco Mobile · Banco Admin
 | **Observability** | Server: structured error reporting + optional alert webhook + process-level unhandled-error capture. Mobile: global JS + React render crash capture. | tests + wired |
 | **Marketplace lifecycle** | publish → appears (feed + search + SEO) → open → message → favorite → edit → bump → archive → republish → delete (+ cascade). | end-to-end DB test |
 | **Adaptive Data philosophy** | Custom specs (unlimited), search across description + spec values, minimal floor, Candidate-Attributes learning pipeline. | tests |
+| **Furnished rental host hub (R1)** | Isolated `/rentals/hub` for `is_bookable` units; edit listing (title/location/price); profile menu + booking deep-links; separate from sale/long-term rent. | mobile typecheck + manual path review |
+| **Production hardening PH-1** | Profile Payments → `/billing` hub; finance stack routes; notification deep-links guarded; `WAVE-P0-STAGING-VALIDATION.md` checklist. | `test:lib` + typecheck |
+| **Billing export B4** | Invoice PDF download + monthly CSV from `/billing`; API `…/invoices/{id}/pdf` + `…/report.csv`; OpenAPI/orval. | unit tests + `test:lib` |
+| **Wave 4/5 search parity** | Market-scoped rental chips (`searchTaxonomy`), near-me on FilterSheet + API/OpenAPI, map clusters honour radius | `searchParams`, `FilterSheet`, `SearchService.nearMeConditions` |
+| **Mobile performance (RC)** | Home rails: parallel `getTrending` + feed pool + industrial + geo (no waterfall). Map: 300ms viewport debounce + LRU cluster cache. Search: facet normalize via `applyPatch` + single retry; autocomplete seq guard; stable list header / card press. Session: debounced AsyncStorage + memoized provider value. | 23 mobile regression tests pass |
+| **Expo/EAS production readiness** | `app.config.ts` dynamic router origin; Metro monorepo; Android SDK 35 + adaptive icon; iOS privacy placeholders; `production-confidence-check.mjs`; staging runbook | `node scripts/production-confidence-check.mjs` |
+| **Health smoke (P0)** | Automated vitest for `GET /api/healthz`, `/api/livez`, `/api/readyz` (no Clerk). | `health.test.ts` |
+| **P0 staging tooling** | `scripts/staging-p0-smoke.mjs` (upload byte-path) + `scripts/verify-upload-claims-schema.mjs`. | run on staging with secrets |
+| **Search engines P1-8** | Ten facet-gated `property_type` chips; create taxonomy aligned (`commercial_land`, `warehouse`). | `test:lib` + i18n en/ar |
+| **P2 infra** | GCP deploy scaffold (`deploy/gcp/`), ESLint monorepo + CI job, mobile regression CI job. | `WAVE-P2-INFRA.md` + Actions |
+| **Upload schema P0 (C-01)** | `ensureSchemaPatches` on boot + `ensureSchema.test.ts` proves `upload_claims` exists. | DB integration test |
 
 **Deploy hardening already in place:** `app.listen` binds the port **before** `ensureDbExtensions` (the earlier deploy failure was the port never opening because startup awaited a DB extension). Process-level `unhandledRejection`/`uncaughtException` handlers added.
 
@@ -72,3 +85,12 @@ The four markets (cars · real-estate incl. land · industrial/factories · B2B)
 5. Continued deploy/log hardening with real deploy runs.
 
 Work continues in the same environment; this report and the codebase are kept in sync on each push.
+
+---
+
+## Consolidation — production readiness (2026-07-08)
+
+- Added/updated udit/production-readiness/ playbooks, PHASE-01-CORE-ARCHITECTURE.md, PHASE-LISTING-PUBLISH-LIFECYCLE.md (**publish safe**), and RELEASE-CANDIDATE-FINAL.md (conditional GO staging / conditional NO-GO prod).
+- Root script: pnpm run confidence → scripts/production-confidence-check.mjs.
+- Mobile: session/map/search performance hardening (no publish-path changes).
+- **Windows install:** pnpm install --ignore-scripts when preinstall sh is unavailable.

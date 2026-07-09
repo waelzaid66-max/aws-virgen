@@ -39,6 +39,15 @@ export class ObjectNotFoundError extends Error {
   }
 }
 
+/** Thrown when a user tries to promote or attach another user's upload. */
+export class UploadOwnershipError extends Error {
+  constructor(message = "You do not own this upload") {
+    super(message);
+    this.name = "UploadOwnershipError";
+    Object.setPrototypeOf(this, UploadOwnershipError.prototype);
+  }
+}
+
 export class ObjectStorageService {
   constructor() {}
 
@@ -177,16 +186,6 @@ export class ObjectStorageService {
     return `/objects/${entityId}`;
   }
 
-  /**
-   * Promotes a serving URL (as returned by requestUploadUrlHandler) to a
-   * public ACL so it becomes accessible via serveObjectHandler without auth.
-   *
-   * This must be called when a media URL is permanently attached to a listing.
-   * Silently no-ops for URLs that are not ours (CDN, external hosts, etc.) or
-   * when the object does not yet exist in storage.
-   *
-   * Serving URL shape: https?://<host>/api/v1/uploads/objects/<wildcardPath>
-   */
   async promoteServingUrlToPublic(servingUrl: string, ownerId: string): Promise<void> {
     let wildcardPath: string;
     try {
@@ -204,15 +203,34 @@ export class ObjectStorageService {
       const objectFile = await this.getObjectEntityFile(objectPath);
       const existing = await getObjectAclPolicy(objectFile);
       if (existing && existing.owner !== ownerId) {
-        // Refuse to overwrite another user's ACL claim.  This prevents a
-        // listing creator from "promoting" an object they didn't upload.
-        return;
+        throw new UploadOwnershipError();
       }
       await setObjectAclPolicy(objectFile, { owner: ownerId, visibility: "public" });
     } catch (err) {
+      if (err instanceof UploadOwnershipError) throw err;
       // Object may not exist yet or path is malformed.  Log for observability
       // so media promotion failures are detectable without blocking the caller.
       logger.warn({ err, wildcardPath, ownerId }, "promoteServingUrlToPublic: failed to set ACL");
+    }
+  }
+
+  async getAclOwnerForServingUrl(servingUrl: string): Promise<string | null> {
+    let wildcardPath: string;
+    try {
+      const parsed = new URL(servingUrl);
+      const UPLOADS_PREFIX = "/api/v1/uploads/objects/";
+      if (!parsed.pathname.startsWith(UPLOADS_PREFIX)) return null;
+      wildcardPath = parsed.pathname.slice(UPLOADS_PREFIX.length);
+      if (!wildcardPath) return null;
+    } catch {
+      return null;
+    }
+    try {
+      const objectFile = await this.getObjectEntityFile(`/objects/${wildcardPath}`);
+      const policy = await getObjectAclPolicy(objectFile);
+      return policy?.owner ?? null;
+    } catch {
+      return null;
     }
   }
 

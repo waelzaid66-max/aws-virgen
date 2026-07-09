@@ -105,6 +105,21 @@ describe("listing journey: create → feed + search + SEO", () => {
     const { id } = await createListing(input, ownerClerk);
     expect(typeof id).toBe("string");
 
+    const [raw] = await db
+      .select({
+        status: listings.status,
+        isFlagged: listings.isFlagged,
+        flagReason: listings.flagReason,
+      })
+      .from(listings)
+      .where(inArray(listings.id, [id]));
+    expect(raw, `listing row ${id} missing right after create`).toBeTruthy();
+    expect(raw!.status).toBe("active");
+    expect(
+      raw!.isFlagged,
+      `listing unexpectedly flagged: ${raw!.flagReason ?? "?"}`,
+    ).not.toBe(true);
+
     // SEO page (Google-indexable) — active, real price, not a request.
     const seo = await getSeoListing(id);
     expect(seo).not.toBeNull();

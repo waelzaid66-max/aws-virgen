@@ -15,6 +15,7 @@ import { isAllowedOrigin, shouldRejectUnsafeOrigin } from "./lib/cors";
 import { errorResponse } from "./validators/schemas";
 import { accessLogger } from "./lib/logger";
 import router from "./routes";
+import healthRouter from "./routes/health";
 import seoRouter from "./seoRoutes";
 import { notFoundHandler, errorHandler } from "./middlewares/errorHandler";
 
@@ -109,6 +110,9 @@ app.use((req, res, next) => {
 
 app.use(express.json({ limit: "100kb" }));
 app.use(express.urlencoded({ extended: true, limit: "100kb" }));
+
+// Liveness/readiness probes must not depend on Clerk secrets or auth context.
+app.use("/api", healthRouter);
 
 // Resolve publishable key from request host for multi-domain support
 app.use(

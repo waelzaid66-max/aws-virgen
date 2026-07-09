@@ -13,6 +13,12 @@ import { getDbUser } from "./UserService";
 import { publicVisibilityConditions } from "../lib/feedVisibility";
 import { createNotification } from "./NotificationService";
 import { getObjectStorageService } from "../lib/objectStorageProvider";
+import {
+  assertCallerMayUseUpload,
+  consumeUploadClaim,
+  parseServingWildcard,
+  servingWildcardToObjectPath,
+} from "../lib/uploadClaims";
 import type {
   CompanyProfile,
   CompanyDirectoryItem,
@@ -380,7 +386,12 @@ export async function upsertMyCompanyProfile(
   await Promise.all(
     [input.logo_url, input.cover_url]
       .filter((u): u is string => typeof u === "string" && u.length > 0)
-      .map((u) => objectStorageService.promoteServingUrlToPublic(u, user.id))
+      .map(async (u) => {
+        await assertCallerMayUseUpload(u, clerkId);
+        await objectStorageService.promoteServingUrlToPublic(u, clerkId);
+        const wildcard = parseServingWildcard(u);
+        if (wildcard) await consumeUploadClaim(servingWildcardToObjectPath(wildcard));
+      })
   );
 
   return { updated: true };

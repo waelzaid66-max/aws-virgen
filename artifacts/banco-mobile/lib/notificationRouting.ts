@@ -43,7 +43,15 @@ export function routeForNotification(
   // A new booking request → the host's booking inbox (not the listing), so the
   // host lands right where they confirm/reject.
   if (type === "booking") {
-    return "/bookings";
+    return { pathname: "/bookings", params: { role: "host" } } as Href;
+  }
+
+  if (
+    type === "payment_success" ||
+    type === "payment_failed" ||
+    type === "subscription_expiring"
+  ) {
+    return "/billing" as Href;
   }
 
   // comment, price_drop, new_match, lead, review, system → listing when present.

@@ -1,5 +1,7 @@
 ###############################################################################
-# BANCO API server — ROOT Dockerfile for AWS Elastic Beanstalk (Docker / AL2023)
+# BANCO API server — ROOT Dockerfile (AWS Elastic Beanstalk + GCP Cloud Build)
+#
+# GCP: Console "Dockerfile" path = Dockerfile; context = repo root; see cloudbuild.yaml
 #
 # WHY THIS FILE EXISTS AT THE ROOT:
 #   EB's single-container Docker platform looks for `Dockerfile` (or

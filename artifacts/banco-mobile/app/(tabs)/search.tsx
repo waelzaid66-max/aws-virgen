@@ -15,6 +15,7 @@ import {
   ScrollView,
   StyleSheet,
   View,
+  Alert,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, {
@@ -36,12 +37,16 @@ import {
   CategoryIcon,
   CategoryTabs,
   EngineChips,
+  IndustrialSubChips,
+  type IndustrialType,
   apiCategoryFor,
+  industrialGroupForCategory,
 } from "@/components/CategoryTabs";
 import {
   useInventoryFacets,
   visibleCategories,
   visibleEngines,
+  visibleIndustrialTypes,
 } from "@/lib/facets";
 import {
   POPULAR_BRANDS,
@@ -49,6 +54,8 @@ import {
   type CarBrand,
 } from "@/constants/cars";
 import { labelForValue } from "@/constants/locations";
+import { DEFAULT_MARKET_COUNTRY } from "@/constants/listingCreateTaxonomy";
+import { engineByKey, enginesForCategory } from "@/constants/engines";
 import { useI18n } from "@/context/LanguageContext";
 import { SavedSearch, useSession } from "@/context/SessionContext";
 import { useSound } from "@/context/SoundContext";
@@ -58,9 +65,20 @@ import { useSearchMiniApp } from "@/hooks/useSearchMiniApp";
 import {
   DEFAULT_CRITERIA,
   SearchCriteria,
+  hasActiveCriteria,
   type PaymentType,
   type SearchSort,
 } from "@/lib/searchParams";
+import {
+  DEFAULT_NEAR_RADIUS_KM,
+  requestNearMeCoords,
+} from "@/lib/nearMe";
+import {
+  MARKET_COUNTRIES,
+  marketCountryLabel,
+  rentalTermsForSearch,
+  sanitizeRentalTermForMarket,
+} from "@/lib/searchTaxonomy";
 
 type FilterCategory = Category;
 
@@ -89,6 +107,8 @@ const CLEAR_ATTRS: Partial<SearchCriteria> = {
   maxYear: "",
   industry: null,
   originType: null,
+  industrialType: "all",
+  rentalTerm: null,
 };
 
 // The category-independent filters, reset by the sheet's "Clear all" (combined
@@ -100,6 +120,11 @@ const CLEAR_FILTERS: Partial<SearchCriteria> = {
   maxPrice: "",
   location: "",
   paymentType: "any",
+  marketCountry: DEFAULT_MARKET_COUNTRY,
+  nearMeEnabled: false,
+  nearLat: null,
+  nearLng: null,
+  nearRadiusKm: DEFAULT_NEAR_RADIUS_KM,
 };
 
 // Valid sort keys arriving via navigation (e.g. the Home "Sort" launcher). Any
@@ -179,11 +204,13 @@ export default function SearchScreen() {
   const params = useLocalSearchParams<{
     q?: string;
     category?: string;
+    engine?: string;
     minPrice?: string;
     maxPrice?: string;
     location?: string;
     paymentType?: string;
     sort?: string;
+    ts?: string;
   }>();
 
   // Fire a coarse behaviour signal on each committed search (category intent).
@@ -201,7 +228,7 @@ export default function SearchScreen() {
   );
 
   const search = useSearchMiniApp(onCommitted);
-  const { criteria, items, viewState, phase, hasNext, commit, update, loadMore, retry } =
+  const { criteria, items, viewState, phase, hasNext, commit, update, applyPatch, loadMore, retry } =
     search;
 
   // Map view toggle. Only results that carry real coordinates are mappable, so
@@ -260,19 +287,43 @@ export default function SearchScreen() {
     () => visibleEngines(criteria.category, scopedFacets),
     [criteria.category, scopedFacets]
   );
-  // If a refresh reveals the selected engine no longer has inventory, fall back
-  // to "all" so the committed criteria never references a vanished chip.
+  const activeGroup = industrialGroupForCategory(criteria.category);
+  const visibleIndTypes = useMemo(
+    () => (activeGroup ? visibleIndustrialTypes(activeGroup, scopedFacets) : null),
+    [activeGroup, scopedFacets]
+  );
+  const showIndustrialChips =
+    !facetsLoading && !!visibleIndTypes && visibleIndTypes.length > 1;
+  // If facets reveal the committed engine/sub-type no longer has inventory,
+  // normalize criteria once and re-query (single fetch, not two updates).
   useEffect(() => {
-    // Skip while facets load: requiresFacet chips fail closed during the load
-    // window, so resetting here would wipe a remembered selection on return.
     if (facetsLoading) return;
+    const patch: Partial<SearchCriteria> = {};
     if (
       criteria.engineKey !== "all" &&
       !engineList.some((e) => e.key === criteria.engineKey)
     ) {
-      update({ engineKey: "all" });
+      patch.engineKey = "all";
     }
-  }, [engineList, criteria.engineKey, update, facetsLoading]);
+    if (
+      criteria.industrialType !== "all" &&
+      visibleIndTypes &&
+      !visibleIndTypes.includes(criteria.industrialType)
+    ) {
+      patch.industrialType = "all";
+    }
+    if (Object.keys(patch).length === 0) return;
+    applyPatch(patch);
+    const next = { ...criteria, ...patch };
+    if (hasActiveCriteria(next)) retry();
+  }, [
+    engineList,
+    visibleIndTypes,
+    criteria,
+    applyPatch,
+    retry,
+    facetsLoading,
+  ]);
 
   // Live text input value (the only field that is debounced rather than
   // committed immediately). Price / year drafts live inside the FilterSheet.
@@ -296,15 +347,20 @@ export default function SearchScreen() {
     []
   );
 
+  const autocompleteSeq = useRef(0);
+
   const fetchAutocomplete = useCallback(async (q: string) => {
     if (q.length < 2) {
       setSuggestions([]);
       return;
     }
+    const seq = ++autocompleteSeq.current;
     try {
       const res = await getAutocomplete({ q });
+      if (seq !== autocompleteSeq.current) return;
       setSuggestions(res.data ?? []);
     } catch {
+      if (seq !== autocompleteSeq.current) return;
       setSuggestions([]);
     }
   }, []);
@@ -374,10 +430,8 @@ export default function SearchScreen() {
   // Re-run a saved search arriving via navigation params.
   const appliedSig = useRef<string>("");
   useEffect(() => {
-    // Navigation can arrive with a free-text query, a category, and/or a sort
-    // (the Home "Sort" launcher pushes only `sort`). Any one of the three is
-    // enough to commit a browse; bare navigation with none of them is ignored.
-    if (!params.q && !params.sort && !params.category) return;
+    // Navigation can arrive with a free-text query, category, engine, and/or sort.
+    if (!params.q && !params.sort && !params.category && !params.engine) return;
     const sig = JSON.stringify(params);
     if (sig === appliedSig.current) return;
     appliedSig.current = sig;
@@ -385,6 +439,11 @@ export default function SearchScreen() {
     const category = (CATEGORIES.includes(params.category as FilterCategory)
       ? params.category
       : "all") as FilterCategory;
+    const engineDefs = enginesForCategory(category);
+    const engineKey =
+      params.engine && engineDefs?.some((e) => e.key === params.engine)
+        ? String(params.engine)
+        : "all";
     const pt: PaymentType =
       params.paymentType === "installment" ? "installment" : "any";
     const sort: SearchSort = (SORTS.includes(params.sort as SearchSort)
@@ -401,6 +460,7 @@ export default function SearchScreen() {
       ...DEFAULT_CRITERIA,
       q,
       category,
+      engineKey,
       minPrice: minP,
       maxPrice: maxP,
       location: loc,
@@ -416,12 +476,14 @@ export default function SearchScreen() {
     commitQueryNow(s);
   };
 
-  const handleCardPress = (item: FeedItem) => {
-    // Guests are funneled into sign-up before any listing opens (Task #101).
-    if (!requireAuth()) return;
-    cacheFeedItem(item);
-    router.push(`/listing/${item.id}`);
-  };
+  const handleCardPress = useCallback(
+    (item: FeedItem) => {
+      if (!requireAuth()) return;
+      cacheFeedItem(item);
+      router.push(`/listing/${item.id}`);
+    },
+    [requireAuth, cacheFeedItem],
+  );
 
   const applySaved = useCallback(
     (s: SavedSearch) => {
@@ -469,8 +531,66 @@ export default function SearchScreen() {
     update({ ...CLEAR_ATTRS, category: "real_estate", engineKey: "all" });
   };
 
-  // Engine "Type" chip selection inside the sheet → committed criteria.
-  const selectEngine = (key: string) => update({ engineKey: key });
+  // Engine chip → committed criteria; sale (تمليك) clears rent-only filters.
+  const selectEngine = (key: string) => {
+    const engine = engineByKey(criteria.category, key);
+    const patch: Partial<SearchCriteria> = { engineKey: key };
+    if (engine?.params.offer_type === "sale") patch.rentalTerm = null;
+    if (engine?.params.fuel_type) patch.fuelType = engine.params.fuel_type;
+    if (engine?.params.transmission) {
+      patch.transmission = engine.params.transmission;
+    }
+    update(patch);
+  };
+
+  const selectIndustrialType = (type: IndustrialType) =>
+    update({ industrialType: type });
+
+  const selectOrigin = (o: "all" | "local" | "imported") =>
+    update({ originType: o === "all" ? null : o });
+
+  const selectRentalTerm = (term: string) =>
+    update({ rentalTerm: criteria.rentalTerm === term ? null : term });
+
+  const selectMarketCountry = (code: string) =>
+    update({
+      marketCountry: code,
+      rentalTerm: sanitizeRentalTermForMarket(criteria.rentalTerm, code),
+    });
+
+  const toggleNearMe = useCallback(async () => {
+    if (criteria.nearMeEnabled) {
+      update({
+        nearMeEnabled: false,
+        nearLat: null,
+        nearLng: null,
+      });
+      return;
+    }
+    const coords = await requestNearMeCoords();
+    if (!coords) {
+      Alert.alert(t("search.nearMe"), t("search.nearMeDenied"));
+      return;
+    }
+    update({
+      nearMeEnabled: true,
+      nearLat: coords.lat,
+      nearLng: coords.lng,
+      nearRadiusKm: DEFAULT_NEAR_RADIUS_KM,
+    });
+  }, [criteria.nearMeEnabled, t, update]);
+
+  const rentalTerms = rentalTermsForSearch(criteria.marketCountry);
+
+  const originKey: "all" | "local" | "imported" =
+    criteria.originType === "local" || criteria.originType === "imported"
+      ? criteria.originType
+      : "all";
+
+  const showRentalTerms =
+    criteria.category === "real_estate" &&
+    engineByKey(criteria.category, criteria.engineKey)?.params.offer_type !==
+      "sale";
 
   // Quick brand chip inside the sheet (closes the sheet via browseBrand).
   const browseBrandChip = useCallback(
@@ -706,13 +826,142 @@ export default function SearchScreen() {
           sheet. Empty for every other section, so this row only appears where it
           applies. No rent/lease chip — that data does not exist (see
           constants/engines.ts). */}
-      {!facetsLoading && engineList.length > 1 && (
+      {!facetsLoading && engineList.length > 1 && !showIndustrialChips && (
         <EngineChips
           engines={engineList}
           selected={criteria.engineKey}
           onChange={selectEngine}
         />
       )}
+      {showIndustrialChips && (
+        <IndustrialSubChips
+          types={visibleIndTypes!}
+          selected={criteria.industrialType}
+          onChange={selectIndustrialType}
+        />
+      )}
+      {activeGroup ? (
+        <View style={[styles.originRow, { flexDirection: rowDir }]}>
+          {(["all", "local", "imported"] as const).map((o) => {
+            const active = originKey === o;
+            return (
+              <Pressable
+                key={o}
+                onPress={() => {
+                  playSound("tap");
+                  selectOrigin(o);
+                }}
+                style={[
+                  styles.originChip,
+                  {
+                    backgroundColor: active ? colors.primary : colors.secondary,
+                  },
+                ]}
+                testID={`search-origin-${o}`}
+              >
+                <AppText
+                  style={[
+                    styles.originChipText,
+                    {
+                      color: active
+                        ? colors.primaryForeground
+                        : colors.mutedForeground,
+                    },
+                  ]}
+                >
+                  {o === "all"
+                    ? t("search.any")
+                    : t(`create.opts.${o}`)}
+                </AppText>
+              </Pressable>
+            );
+          })}
+        </View>
+      ) : null}
+      {showRentalTerms ? (
+        <>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={[styles.originRow, { flexDirection: rowDir }]}
+          >
+            {MARKET_COUNTRIES.map((m) => {
+              const active = criteria.marketCountry === m.value;
+              return (
+                <Pressable
+                  key={m.value}
+                  onPress={() => {
+                    playSound("tap");
+                    selectMarketCountry(m.value);
+                  }}
+                  style={[
+                    styles.originChip,
+                    {
+                      backgroundColor: active
+                        ? colors.primary
+                        : colors.secondary,
+                    },
+                  ]}
+                  testID={`search-market-${m.value}`}
+                >
+                  <AppText
+                    style={[
+                      styles.originChipText,
+                      {
+                        color: active
+                          ? colors.primaryForeground
+                          : colors.mutedForeground,
+                      },
+                    ]}
+                  >
+                    {marketCountryLabel(m.value, isRTL)}
+                  </AppText>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={[styles.originRow, { flexDirection: rowDir }]}
+          >
+            {rentalTerms.map((r) => {
+              const active = criteria.rentalTerm === r.value;
+              return (
+                <Pressable
+                  key={r.value}
+                  onPress={() => {
+                    playSound("tap");
+                    selectRentalTerm(r.value);
+                  }}
+                  style={[
+                    styles.originChip,
+                    {
+                      backgroundColor: active
+                        ? colors.primary
+                        : colors.secondary,
+                    },
+                  ]}
+                  testID={`search-rental-${r.value}`}
+                >
+                  <AppText
+                    style={[
+                      styles.originChipText,
+                      {
+                        color: active
+                          ? colors.primaryForeground
+                          : colors.mutedForeground,
+                      },
+                    ]}
+                  >
+                    {isRTL ? r.ar : r.en}
+                  </AppText>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        </>
+      ) : null}
 
       {/* Orientation line: how many results the current criteria produced.
           "24+" while more pages exist, exact once the tail is loaded. */}
@@ -746,6 +995,7 @@ export default function SearchScreen() {
         onUpdate={update}
         onOpenLocationPicker={() => setLocationPickerOpen(true)}
         onClearLocation={() => update({ location: "" })}
+        onToggleNearMe={() => void toggleNearMe()}
         onClearAll={clearAllFilters}
       />
 
@@ -907,6 +1157,20 @@ const styles = StyleSheet.create({
   },
   mapToggleText: { fontSize: 14, fontWeight: "700" },
   resultsCount: { fontSize: 12.5, paddingHorizontal: 16, paddingTop: 8 },
+  originRow: {
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingTop: 8,
+  },
+  originChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 18,
+  },
+  originChipText: {
+    fontSize: 13,
+    fontFamily: "Inter_500Medium",
+  },
   header: {
     paddingHorizontal: 16,
     paddingBottom: 12,

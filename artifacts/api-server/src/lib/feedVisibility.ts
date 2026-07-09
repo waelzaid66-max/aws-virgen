@@ -17,5 +17,6 @@ export function publicVisibilityConditions(): SQL[] {
   return [
     sql`${listings.isFlagged} IS NOT TRUE`,
     sql`${users.isShadowBanned} IS NOT TRUE`,
+    sql`${users.deletedAt} IS NULL`,
   ];
 }

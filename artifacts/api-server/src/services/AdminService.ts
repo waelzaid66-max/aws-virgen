@@ -8,6 +8,7 @@ import {
   ads,
   reports,
   auditLog,
+  paymentIntents,
 } from "@workspace/db/schema";
 import { and, count, desc, eq, ilike, inArray, lt, or, sql, type SQL } from "drizzle-orm";
 import { setShadowBan, writeAudit } from "./AbuseService";
@@ -986,6 +987,27 @@ export async function alerts(): Promise<AlertRow[]> {
       title: "No leads in the last 24h",
       description: "No buyer leads were captured in the past 24 hours",
       value: "0",
+      created_at: now,
+    });
+  }
+
+  const [failedPayments] = await db
+    .select({ c: sql<number>`count(*)::int` })
+    .from(paymentIntents)
+    .where(
+      and(
+        eq(paymentIntents.status, "failed"),
+        sql`${paymentIntents.createdAt} >= now() - interval '24 hours'`,
+      ),
+    );
+  if ((failedPayments?.c ?? 0) > 0) {
+    out.push({
+      id: "payment_failure",
+      type: "payment_failure",
+      severity: (failedPayments?.c ?? 0) > 5 ? "critical" : "warning",
+      title: "Payment failures in last 24h",
+      description: `${failedPayments!.c} hosted checkout payment(s) failed in the past 24 hours`,
+      value: String(failedPayments!.c),
       created_at: now,
     });
   }

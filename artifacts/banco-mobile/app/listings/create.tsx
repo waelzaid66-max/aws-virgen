@@ -37,6 +37,7 @@ import {
   isUploadAbortError,
   buildResolvedMedia,
   uploadResolvedMedia,
+  uploadErrorMessageKey,
 } from "@/lib/upload";
 import {
   MAX_MEDIA,
@@ -508,7 +509,11 @@ export default function CreateListingScreen() {
         if (isUploadAbortError(e) || controller.signal.aborted) return;
         setUploadState((s) => ({
           ...s,
-          [uri]: { status: "failed", progress: 0, error: t("create.errUpload") },
+          [uri]: {
+            status: "failed",
+            progress: 0,
+            error: t(uploadErrorMessageKey(e)),
+          },
         }));
       } finally {
         if (controllers.current[uri] === controller) {

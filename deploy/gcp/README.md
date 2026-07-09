@@ -1,0 +1,112 @@
+# BANCO — GCP deployment (Cloud Run + Cloud Build)
+
+**Status:** build pipeline fixed for exit **125** — validate with Cloud Build before production deploy.
+
+## Root cause of Cloud Build exit 125 (fixed in repo)
+
+Docker exit **125** means the `docker build` command failed **before** the image was built — not a `pnpm` or compile error inside the Dockerfile.
+
+| Cause | Symptom | Fix in this repo |
+|-------|---------|------------------|
+| Empty `$SHORT_SHA` on manual submit / some triggers | Image tag like `.../api:` (invalid) | All `cloudbuild*.yaml` now tag with **`$BUILD_ID`** (always set) |
+| Build context not repo root | `Dockerfile` or `deploy/gcp/Dockerfile.api` not found | Context must be **`.`** (repository root) |
+| Console Dockerfile `/Dockerfile` but context `deploy/gcp` | `-f` path wrong | Use settings below exactly |
+
+## Google Cloud Console — exact settings
+
+### Option A — Console “Dockerfile” UI (what you configured)
+
+| Field | Value |
+|-------|--------|
+| **Build type** | Dockerfile |
+| **Source location / Dockerfile** | `Dockerfile` (repo root — **not** `/Dockerfile` as a filesystem path on the builder) |
+| **Build context / directory** | `.` (repository root) |
+| **Configuration** (if using Cloud Build YAML instead) | `cloudbuild.yaml` at repo root |
+
+### Option B — Cloud Build YAML (recommended)
+
+| Field | Value |
+|-------|--------|
+| **Configuration file** | `cloudbuild.yaml` (root) **or** `deploy/gcp/cloudbuild.yaml` |
+| **Substitutions** | `_REGION=europe-west1`, `_AR_REPO=banco` (create Artifact Registry repo `banco` first) |
+
+### Do **not** do this
+
+- Context = `deploy/gcp` only → lockfile/workspace members missing → build fails
+- Image tag = `$SHORT_SHA` only without `$BUILD_ID` → **exit 125**
+- Deploy Cloud Run on first build before image push succeeds → use build-only config first
+
+## Commands
+
+From repository root (after `gcloud auth` + Artifact Registry API enabled):
+
+```bash
+# 1) Build + push only (safe first run)
+gcloud builds submit . --config=deploy/gcp/cloudbuild.yaml \
+  --substitutions=_REGION=europe-west1,_AR_REPO=banco
+
+# 2) Full pipeline (build + push + Cloud Run) — after step 1 works
+gcloud builds submit . --config=deploy/gcp/cloudbuild.deploy.yaml \
+  --substitutions=_REGION=europe-west1,_AR_REPO=banco,_SERVICE=banco-api,_ALLOW_UNAUTH=false
+
+# Local verify (no Docker required)
+node scripts/verify-gcp-docker-build-config.mjs
+```
+
+Local Docker (optional):
+
+```bash
+docker build -f deploy/gcp/Dockerfile.api -t banco-api .
+# or
+docker build -f Dockerfile -t banco-api .
+```
+
+## Topology
+
+| Component | GCP service |
+|-----------|-------------|
+| API | Cloud Run (container from `Dockerfile` or `deploy/gcp/Dockerfile.api`) |
+| Postgres | Cloud SQL for PostgreSQL 16 |
+| Object storage | S3-compatible HMAC or `replit` — **no `gcs` provider value** |
+| Secrets | Secret Manager → Cloud Run env |
+| Mobile | EAS / app stores (not on GCP) |
+
+## Cloud Run deploy failures (real causes + fix)
+
+Most deploy failures are not Docker build errors; they happen in `deploy-cloud-run` step:
+
+| Failure class | Typical error text | Fix now in repo |
+|---|---|---|
+| Public access blocked by org policy | `iam.setIamPolicy denied` / unauthenticated not allowed | `cloudbuild.deploy.yaml` defaults to `_ALLOW_UNAUTH=false` (`--no-allow-unauthenticated`) |
+| Missing Artifact Registry repo | `NOT_FOUND: Repository ...` | Preflight now checks repo and fails with explicit create command |
+| APIs not enabled | `API ... has not been used/disabled` | Preflight now enables required APIs before deploy |
+
+If you need a public endpoint, run with:
+
+```bash
+gcloud builds submit . --config=deploy/gcp/cloudbuild.deploy.yaml \
+  --substitutions=_REGION=europe-west1,_AR_REPO=banco,_SERVICE=banco-api,_ALLOW_UNAUTH=true
+```
+
+## Files
+
+| File | Purpose |
+|------|---------|
+| `Dockerfile` (repo root) | API image — matches EB + Console “Dockerfile” path |
+| `cloudbuild.yaml` (repo root) | Build + push only; uses root `Dockerfile` |
+| `deploy/gcp/Dockerfile.api` | Same recipe as root `Dockerfile` |
+| `deploy/gcp/cloudbuild.yaml` | Build + push only; uses `deploy/gcp/Dockerfile.api` |
+| `deploy/gcp/cloudbuild.deploy.yaml` | Build + push + `gcloud run deploy` |
+| `.gcloudignore` | Smaller upload; never excludes lockfile/workspace |
+| `scripts/verify-gcp-docker-build-config.mjs` | CI/local gate for paths and tags |
+| `deploy/gcp/reports/` | Full GCP audit pack (hosting requirements, Go/No-Go) |
+| `deploy/gcp/TRIGGER_MIGRATION.md` | Fix Cloud Build Console triggers |
+
+## After image is in Artifact Registry
+
+1. Cloud SQL + `DATABASE_URL` in Secret Manager  
+2. `pnpm --filter @workspace/db run push-force` or boot `ensureSchemaPatches`  
+3. Deploy Cloud Run with secrets (`CLERK_*`, `OPENAI_API_KEY`, storage, etc.)  
+4. Smoke: `BANCO_API_URL=https://… node scripts/staging-p0-smoke.mjs`
+
+Health: `/api/healthz` (liveness), `/api/readyz` (readiness).

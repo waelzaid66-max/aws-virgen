@@ -5,7 +5,7 @@ import {
   bumpListing,
   DealerListing,
 } from "@workspace/api-client-react";
-import { router } from "expo-router";
+import { router, type Href } from "expo-router";
 import * as Haptics from "expo-haptics";
 import React, { useCallback, useEffect, useState } from "react";
 import {
@@ -363,6 +363,27 @@ export default function MyListingsScreen() {
                     <Stat icon="users" value={item.leads} colors={colors} />
                   </View>
                   <View style={styles.cardActions}>
+                    {item.id ? (
+                      <Pressable
+                        onPress={() =>
+                          router.push(`/listings/edit/${item.id}` as Href)
+                        }
+                        style={styles.renewBtn}
+                        hitSlop={8}
+                        testID={`edit-listing-${item.id}`}
+                      >
+                        <Feather
+                          name="edit-2"
+                          size={15}
+                          color={colors.primary}
+                        />
+                        <AppText
+                          style={[styles.renewText, { color: colors.primary }]}
+                        >
+                          {t("mine.edit")}
+                        </AppText>
+                      </Pressable>
+                    ) : null}
                     {item.status === "active" && item.id ? (
                       <Pressable
                         onPress={() => runBump(item.id as string)}
