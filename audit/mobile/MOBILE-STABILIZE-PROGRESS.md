@@ -86,7 +86,7 @@ Docs: `SEARCH-BUTTON-ISOLATION.md`, `SECTION-ISOLATION-STRICT-2026-07-10.md`, `A
 | ID | Why |
 |----|-----|
 | Device QA | Checklist ready (`DEVICE-QA-SECTION-COMPANIES.md`) — **not run on device** |
-| Live Replit | **STALE** until redeploy — M23/M24/M28–M31 not claimable live. See `FULL-VERIFICATION-2026-07-10.md` |
+| Live Replit | **FRESH** (probe 2026-07-10) — `market_country` + map `is_bookable`/`price_display` على الإنتاج |
 | O16 OPS | Staging secrets / EAS / smoke — not a stabilize code reopen |
 | API DB vitest | Needs `DATABASE_URL` locally — pure gate test: `allowCommodityMaterialFilter.test.ts` |
 | search-contract bare `node --test` | Prefer `pnpm --filter @workspace/search-contract run test` (`tsx`) |
@@ -104,7 +104,7 @@ node audit/mobile/scripts/ops-next-step.mjs
 - `proof-isolation` / `proof-create-fields`: **ok**
 - search-contract: **33/33** (fixed stale `monthly`/facilities URL round-trip)
 - `allowCommodityMaterialFilter`: **4/4**
-- Live probe: **STALE** (exit 2)
+- Live probe: **FRESH** (exit 0) — ISO reject + map bookable/price
 - Staging smoke default host: **404 dead**; schema verify: **ENOTFOUND**
 - CI `mobile-regression`: icons + lib + resilience + **universal-links**
 - Architecture maintenance closure: `ARCHITECTURE-FILE-INDEX.md`, `pnpm run confidence` (proofs + contract)
