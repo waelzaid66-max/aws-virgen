@@ -14,6 +14,8 @@ export {
   criteriaKey,
   buildSearchParams,
   buildMapClusterParams,
+  buildSearchUrlParams,
+  parseSearchCriteriaFromUrl,
   type MapViewport,
   DEFAULT_NEAR_RADIUS_KM,
   CLEAR_SECTION_ATTRS,

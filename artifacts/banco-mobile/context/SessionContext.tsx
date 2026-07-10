@@ -16,6 +16,8 @@ import {
   toggleSaveListing,
 } from "@workspace/api-client-react";
 
+import type { SearchCriteria } from "@/lib/searchParams";
+import { criteriaKey } from "@/lib/searchParams";
 import { useAuthGate } from "@/hooks/useAuthGate";
 
 const SESSION_ID =
@@ -63,12 +65,16 @@ export type SavedSearch = {
   location: string;
   paymentType: "any" | "installment";
   savedAt: number;
+  /** Full criteria snapshot for round-trip (v2). */
+  criteria?: SearchCriteria;
 };
 
 type SavedSearchInput = Omit<SavedSearch, "id" | "savedAt">;
 
 function searchSignature(s: SavedSearchInput): string {
+  if (s.criteria) return `v2:${criteriaKey(s.criteria)}`;
   return [
+    "v1",
     s.q.trim().toLowerCase(),
     s.category,
     s.minPrice,

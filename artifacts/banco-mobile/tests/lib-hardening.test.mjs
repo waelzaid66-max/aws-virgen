@@ -451,3 +451,73 @@ test("CarPicker create mode always exposes Other / custom brand", () => {
     "create picker must keep custom brand reachable without allowlist-only UX",
   );
 });
+
+test("public listing detail loads without sign-in gate", () => {
+  const listing = fs.readFileSync(
+    path.join(APP_ROOT, "app", "listing", "[id].tsx"),
+    "utf8",
+  );
+  assert.doesNotMatch(
+    listing,
+    /if\s*\(\s*isLoaded\s*&&\s*!isSignedIn\s*\)/,
+    "listing detail must not hard-block guests — API is public optionalAuth",
+  );
+  assert.match(
+    listing,
+    /loadListing\(\)/,
+    "listing detail must fetch for guests after Clerk loads",
+  );
+});
+
+test("browse cards open listing without requireAuth on home and search", () => {
+  const home = fs.readFileSync(
+    path.join(APP_ROOT, "app", "(tabs)", "index.tsx"),
+    "utf8",
+  );
+  const search = fs.readFileSync(
+    path.join(APP_ROOT, "app", "(tabs)", "search.tsx"),
+    "utf8",
+  );
+  assert.doesNotMatch(
+    home,
+    /handleCardPress[\s\S]*requireAuth/,
+    "home feed cards must open listing for guests",
+  );
+  assert.doesNotMatch(
+    search,
+    /handleCardPress[\s\S]*requireAuth/,
+    "search result cards must open listing for guests",
+  );
+});
+
+test("share URL /l/:id forwards to listing screen", () => {
+  const short = path.join(APP_ROOT, "app", "l", "[id].tsx");
+  assert.ok(fs.existsSync(short), "app/l/[id].tsx must exist for shared links");
+  const src = fs.readFileSync(short, "utf8");
+  assert.match(src, /\/listing\/\$\{id\}/, "short link must redirect to listing/[id]");
+});
+
+test("search tab uses shared parseSearchCriteriaFromUrl for nav params", () => {
+  const nav = fs.readFileSync(
+    path.join(APP_ROOT, "lib", "searchNavParams.ts"),
+    "utf8",
+  );
+  const search = fs.readFileSync(
+    path.join(APP_ROOT, "app", "(tabs)", "search.tsx"),
+    "utf8",
+  );
+  assert.match(nav, /parseSearchCriteriaFromUrl/, "searchNavParams must delegate to contract parser");
+  assert.match(search, /parseMobileSearchNavParams/, "search tab must use mobile nav parser");
+});
+
+test("home feed refetches when preferred market hydrates", () => {
+  const home = fs.readFileSync(
+    path.join(APP_ROOT, "app", "(tabs)", "index.tsx"),
+    "utf8",
+  );
+  assert.match(
+    home,
+    /\[category,\s*industrialType,\s*engineKey,\s*marketCountry\]/,
+    "home feed effect must depend on marketCountry",
+  );
+});

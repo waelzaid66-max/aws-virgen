@@ -78,7 +78,6 @@ import {
 } from "@/constants/feed";
 import { useI18n } from "@/context/LanguageContext";
 import { useSession } from "@/context/SessionContext";
-import { useAuthGate } from "@/hooks/useAuthGate";
 import { useColors } from "@/hooks/useColors";
 import { DEFAULT_MARKET_COUNTRY } from "@/constants/listingCreateTaxonomy";
 import { loadPreferredMarketCountry } from "@/lib/marketPreference";
@@ -296,7 +295,6 @@ export default function FeedScreen() {
       : 16;
   const { sessionId, isSaved, toggleSave, recentlyViewed, listingsVersion } =
     useSession();
-  const { requireAuth } = useAuthGate();
   const { isSignedIn, user } = useUser();
   const role = (user?.publicMetadata?.role as string) || "";
   const isBusiness = ["dealer", "company", "enterprise"].includes(role);
@@ -607,7 +605,7 @@ export default function FeedScreen() {
     return () => {
       cancelled = true;
     };
-  }, [category, industrialType, engineKey]);
+  }, [category, industrialType, engineKey, marketCountry]);
 
   const handleRetry = async () => {
     const isFirstPaint = items.length === 0;
@@ -665,8 +663,6 @@ export default function FeedScreen() {
 
   const handleCardPress = useCallback(
     (item: FeedItem) => {
-      // Guests are funneled into sign-up before any listing opens (Task #101).
-      if (!requireAuth()) return;
       sendBehaviorSignal({
         session_id: sessionId,
         listing_id: item.id,
@@ -674,7 +670,7 @@ export default function FeedScreen() {
       }).catch(() => {});
       router.push(`/listing/${item.id}`);
     },
-    [sessionId, requireAuth]
+    [sessionId],
   );
 
   const itemsRef = useRef<FeedItem[]>(items);

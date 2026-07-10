@@ -63,7 +63,11 @@ import { engineByKey, enginesForCategory } from "@/constants/engines";
 import { useI18n } from "@/context/LanguageContext";
 import { SavedSearch, useSession } from "@/context/SessionContext";
 import { useSound } from "@/context/SoundContext";
-import { useAuthGate } from "@/hooks/useAuthGate";
+import {
+  hasIncomingSearchNavParams,
+  parseMobileSearchNavParams,
+  searchCriteriaToNavParams,
+} from "@/lib/searchNavParams";
 import { useColors } from "@/hooks/useColors";
 import { useSearchMiniApp } from "@/hooks/useSearchMiniApp";
 import {
@@ -195,20 +199,9 @@ export default function SearchScreen() {
     cacheFeedItem,
     recordQuery,
   } = useSession();
-  const { requireAuth } = useAuthGate();
   const topPad = Platform.OS === "web" ? 67 : insets.top;
 
-  const params = useLocalSearchParams<{
-    q?: string;
-    category?: string;
-    engine?: string;
-    minPrice?: string;
-    maxPrice?: string;
-    location?: string;
-    paymentType?: string;
-    sort?: string;
-    ts?: string;
-  }>();
+  const params = useLocalSearchParams<Record<string, string | string[]>>();
 
   // Fire a coarse behaviour signal on each committed search (category intent).
   const onCommitted = useCallback(
@@ -232,19 +225,21 @@ export default function SearchScreen() {
   const marketHydrated = useRef(false);
   useEffect(() => {
     if (marketHydrated.current) return;
-    marketHydrated.current = true;
     let cancelled = false;
     void loadPreferredMarketCountry().then((iso) => {
-      if (cancelled || iso === DEFAULT_MARKET_COUNTRY) return;
+      if (cancelled) return;
+      marketHydrated.current = true;
+      if (iso === DEFAULT_MARKET_COUNTRY) return;
       applyPatch({
         marketCountry: iso,
         rentalTerm: sanitizeRentalTermForMarket(null, iso),
       });
+      if (items.length > 0 || phase !== "idle") retry();
     });
     return () => {
       cancelled = true;
     };
-  }, [applyPatch]);
+  }, [applyPatch, retry, items.length, phase]);
 
   // Map view toggle. Only results that carry real coordinates are mappable, so
   // both the toggle's visibility and the map's honest "N on the map" caption are
@@ -493,52 +488,37 @@ export default function SearchScreen() {
     [update]
   );
 
-  // Re-run a saved search arriving via navigation params.
+  // Deep links / saved searches / assistant → full contract parse.
   const appliedSig = useRef<string>("");
   useEffect(() => {
-    // Navigation can arrive with a free-text query, category, engine, and/or sort.
-    if (!params.q && !params.sort && !params.category && !params.engine) return;
+    if (!hasIncomingSearchNavParams(params)) return;
     const sig = JSON.stringify(params);
     if (sig === appliedSig.current) return;
     appliedSig.current = sig;
 
-    const category = (CATEGORIES.includes(params.category as FilterCategory)
-      ? params.category
-      : "all") as FilterCategory;
-    const engineDefs = enginesForCategory(category);
-    const engineKey =
-      params.engine && engineDefs?.some((e) => e.key === params.engine)
-        ? String(params.engine)
-        : "all";
-    const pt: PaymentType =
-      params.paymentType === "installment" ? "installment" : "any";
-    const sort: SearchSort = (SORTS.includes(params.sort as SearchSort)
-      ? params.sort
-      : "recommended") as SearchSort;
-    const q = params.q ? String(params.q) : "";
-    const minP = params.minPrice ? String(params.minPrice) : "";
-    const maxP = params.maxPrice ? String(params.maxPrice) : "";
-    const loc = params.location ? String(params.location) : "";
+    let cancelled = false;
+    void (async () => {
+      const preferredMarket = await loadPreferredMarketCountry();
+      if (cancelled) return;
+      const parsed = parseMobileSearchNavParams(params);
+      const hasMarketInUrl =
+        params.market_country != null || params.marketCountry != null;
+      setDraftQuery(parsed.q);
+      setBrandValue(parsed.brand);
+      commit({
+        ...DEFAULT_CRITERIA,
+        ...parsed,
+        marketCountry: hasMarketInUrl ? parsed.marketCountry : preferredMarket,
+        rentalTerm: sanitizeRentalTermForMarket(
+          parsed.rentalTerm,
+          hasMarketInUrl ? parsed.marketCountry : preferredMarket,
+        ),
+      });
+    })();
 
-    setDraftQuery(q);
-    setBrandValue(null);
-    const engineDef = engineByKey(category, engineKey);
-    commit({
-      ...DEFAULT_CRITERIA,
-      q,
-      category,
-      engineKey,
-      minPrice: minP,
-      maxPrice: maxP,
-      location: loc,
-      paymentType: pt,
-      sort,
-      originType: engineDef?.params.origin_type ?? null,
-      rentalTerm:
-        engineDef?.params.offer_type === "rent"
-          ? DEFAULT_CRITERIA.rentalTerm
-          : null,
-    });
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params]);
 
@@ -550,31 +530,36 @@ export default function SearchScreen() {
 
   const handleCardPress = useCallback(
     (item: FeedItem) => {
-      if (!requireAuth()) return;
       cacheFeedItem(item);
       router.push(`/listing/${item.id}`);
     },
-    [requireAuth, cacheFeedItem],
+    [cacheFeedItem],
   );
 
   const applySaved = useCallback(
     (s: SavedSearch) => {
-      const cat = (CATEGORIES.includes(s.category as FilterCategory)
-        ? s.category
-        : "all") as FilterCategory;
-      setDraftQuery(s.q);
-      setBrandValue(null);
-      commit({
-        ...DEFAULT_CRITERIA,
-        q: s.q,
-        category: cat,
-        minPrice: s.minPrice,
-        maxPrice: s.maxPrice,
-        location: s.location,
-        paymentType: s.paymentType,
+      if (s.criteria) {
+        setDraftQuery(s.criteria.q);
+        setBrandValue(s.criteria.brand);
+        commit({ ...DEFAULT_CRITERIA, ...s.criteria });
+        return;
+      }
+      router.push({
+        pathname: "/(tabs)/search",
+        params: searchCriteriaToNavParams({
+          ...DEFAULT_CRITERIA,
+          q: s.q,
+          category: (CATEGORIES.includes(s.category as FilterCategory)
+            ? s.category
+            : "all") as FilterCategory,
+          minPrice: s.minPrice,
+          maxPrice: s.maxPrice,
+          location: s.location,
+          paymentType: s.paymentType,
+        }),
       });
     },
-    [commit]
+    [commit],
   );
 
   const selectCategory = (cat: FilterCategory) => {
@@ -746,13 +731,18 @@ export default function SearchScreen() {
   }, [update]);
 
   const handleSaveSearch = () => {
-    saveSearch({
+    const snapshot: SearchCriteria = {
+      ...criteria,
       q: draftQuery.trim(),
-      category: criteria.category,
-      minPrice: criteria.minPrice,
-      maxPrice: criteria.maxPrice,
-      location: criteria.location,
-      paymentType: criteria.paymentType,
+    };
+    saveSearch({
+      criteria: snapshot,
+      q: snapshot.q,
+      category: snapshot.category,
+      minPrice: snapshot.minPrice,
+      maxPrice: snapshot.maxPrice,
+      location: snapshot.location,
+      paymentType: snapshot.paymentType,
     });
   };
 
@@ -789,16 +779,15 @@ export default function SearchScreen() {
     criteria.marketCountry !== DEFAULT_MARKET_COUNTRY,
   ].filter(Boolean).length;
 
-  const searchSaved =
-    !!draftQuery.trim() &&
-    isSearchSaved({
-      q: draftQuery.trim(),
-      category: criteria.category,
-      minPrice: criteria.minPrice,
-      maxPrice: criteria.maxPrice,
-      location: criteria.location,
-      paymentType: criteria.paymentType,
-    });
+  const searchSaved = isSearchSaved({
+    criteria: { ...criteria, q: draftQuery.trim() },
+    q: draftQuery.trim(),
+    category: criteria.category,
+    minPrice: criteria.minPrice,
+    maxPrice: criteria.maxPrice,
+    location: criteria.location,
+    paymentType: criteria.paymentType,
+  });
 
   const rowDir = isRTL ? "row-reverse" : "row";
   const textAlign = isRTL ? "right" : "left";

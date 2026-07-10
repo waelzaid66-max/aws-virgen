@@ -15,6 +15,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppText } from "@/components/AppText";
 import { SmartAssetCard } from "@/components/SmartAssetCard";
 import { useI18n } from "@/context/LanguageContext";
+import { searchCriteriaToNavParams } from "@/lib/searchNavParams";
+import { DEFAULT_CRITERIA } from "@/lib/searchParams";
+import type { Category } from "@/components/CategoryTabs";
 import {
   SavedItem,
   SavedSearch,
@@ -23,6 +26,21 @@ import {
 import { useColors } from "@/hooks/useColors";
 
 type PriceTrend = "down" | "up" | null;
+
+function navParamsForSavedSearch(search: SavedSearch): Record<string, string> {
+  if (search.criteria) {
+    return searchCriteriaToNavParams({ ...DEFAULT_CRITERIA, ...search.criteria });
+  }
+  return searchCriteriaToNavParams({
+    ...DEFAULT_CRITERIA,
+    q: search.q,
+    category: (search.category as Category) || "all",
+    minPrice: search.minPrice,
+    maxPrice: search.maxPrice,
+    location: search.location,
+    paymentType: search.paymentType,
+  });
+}
 
 function parsePrice(display?: string | null): number | null {
   if (!display) return null;
@@ -124,15 +142,7 @@ export default function SavedScreen() {
           onPress={() =>
             router.push({
               pathname: "/(tabs)/search",
-              params: {
-                q: search.q,
-                category: search.category,
-                minPrice: search.minPrice,
-                maxPrice: search.maxPrice,
-                location: search.location,
-                paymentType: search.paymentType,
-                ts: String(Date.now()),
-              },
+              params: navParamsForSavedSearch(search),
             })
           }
         >

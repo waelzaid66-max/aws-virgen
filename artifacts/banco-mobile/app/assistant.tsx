@@ -24,6 +24,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppText } from "@/components/AppText";
 import { BancoLogo } from "@/components/BancoLogo";
 import { useI18n } from "@/context/LanguageContext";
+import { searchCriteriaToNavParams } from "@/lib/searchNavParams";
+import { DEFAULT_CRITERIA } from "@/lib/searchParams";
 import { useColors } from "@/hooks/useColors";
 
 type ChatMessage = {
@@ -138,11 +140,20 @@ export default function AssistantScreen() {
       return;
     }
     if (a.kind === "search") {
-      const params: Record<string, string> = {};
-      if (a.query) params.q = a.query;
-      if (a.category) params.category = a.category;
-      if (a.max_price != null) params.maxPrice = String(a.max_price);
-      if (a.has_installment) params.paymentType = "installment";
+      const params = searchCriteriaToNavParams({
+        ...DEFAULT_CRITERIA,
+        q: a.query ?? "",
+        category:
+          a.category === "car" ||
+          a.category === "real_estate" ||
+          a.category === "facilities" ||
+          a.category === "materials" ||
+          a.category === "all"
+            ? a.category
+            : DEFAULT_CRITERIA.category,
+        maxPrice: a.max_price != null ? String(a.max_price) : "",
+        paymentType: a.has_installment ? "installment" : "any",
+      });
       router.push({ pathname: "/(tabs)/search", params });
       return;
     }

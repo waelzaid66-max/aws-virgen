@@ -116,6 +116,24 @@ pnpm run ops:wave-b
 
 ## 8) سجل commits ذو الصلة (هذه الموجة)
 
+- `db6cdb3` — عزل أقسام: sanitize API + discover map + confidence 19/19 (Windows spawn)
+- **(محلي)** — رحلة المستخدم: ضيف يتصفح الإعلان، `/l/:id`، parse كامل للبحث، market refetch، saved search v2
+
+---
+
+## 9) موجة صيانة رحلة المستخدم (2026-07-10 — الجلسة الثانية)
+
+| # | المشكلة | الإصلاح |
+|---|---------|---------|
+| 1 | الضيف يرى البطاقات لكن لا يفتح التفاصيل (Task #101 vs API عام) | إزالة `requireAuth` من Home/Search؛ `listing/[id]` يحمّل بدون قفل |
+| 2 | روابط المشاركة `/l/:id` → not-found | `app/l/[id].tsx` يعيد التوجيه إلى `/listing/:id` |
+| 3 | deep link / saved / assistant يفقدون فلاتر العقد | `searchNavParams.ts` + `parseSearchCriteriaFromUrl` |
+| 4 | Home feed لا يتحدث بعد hydrate السوق | `marketCountry` في deps الـ feed |
+| 5 | Search يبقى على سوق قديم بعد hydrate | `retry()` عند وجود نتائج نشطة |
+| 6 | حفظ البحث يخزن 6 حقول فقط | `SavedSearch.criteria` snapshot كامل (v2) |
+
+**اختبارات:** mobile **39/39**، confidence **19/19**.
+
 - `279e57a` — Wave B orchestrator + local secrets
 - `77b2159` — C-02 unit test + confidence 18→19
 - `8ba704e` — pre-redeploy code gate
