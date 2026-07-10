@@ -257,38 +257,32 @@ test("provider order verified by closing-tag order (nesting integrity)", () => {
   );
 });
 
-// ─── 6. Listing detail — catch-all full-screen guest lock ────────────────────
+// ─── 6. Listing detail — public optionalAuth endpoint ────────────────────────
+// listing/[id] is a public endpoint (optionalAuth); guests can browse without
+// signing in. The session-restore requirement here is that the fetch effect
+// waits for Clerk to fully resolve (isLoaded) before issuing ANY request,
+// so a returning user whose token is still loading doesn't trigger a second
+// anonymous fetch mid-restore.
 
-test("listing detail renders guest lock only after Clerk has fully loaded (isLoaded && !isSignedIn)", () => {
+test("listing detail awaits Clerk resolution before fetching (session restore safe)", () => {
   assert.match(
     listing,
-    /isLoaded && !isSignedIn/,
-    "listing/[id] must check isLoaded before !isSignedIn — during session restore " +
-      "isLoaded is false and isSignedIn is undefined; gating on !isSignedIn alone " +
-      "would flash the guest lock for a user whose session is being restored"
+    /isLoaded/,
+    "listing/[id] must reference isLoaded so the fetch effect can wait for Clerk " +
+      "to finish restoring the session before making API calls"
   );
 });
 
-test("listing detail fetch effect guards on both !isLoaded and !isSignedIn", () => {
-  // Both guards must be present: the isLoaded guard prevents a fetch while the
-  // session is still being restored, and the isSignedIn guard blocks guests.
-  // Removing either lets unauthenticated API calls through or causes a flash.
+test("listing detail fetch effect guards on !isLoaded (public optionalAuth endpoint)", () => {
+  // listing/[id] is a public optionalAuth endpoint — guests can browse listing
+  // details without signing in. The isLoaded guard is still required to prevent
+  // a fetch during the session-restore window (when isLoaded is false and
+  // isSignedIn is undefined). A separate !isSignedIn guard in the fetch effect
+  // is NOT required here because the API accepts unauthenticated requests.
   assert.match(
     listing,
     /if \(!isLoaded\) return/,
     "load effect must early-return when Clerk hasn't finished resolving (session restore window)"
-  );
-  assert.match(
-    listing,
-    /if \(!isSignedIn\) return/,
-    "load effect must also early-return for confirmed guests to avoid unauthenticated API calls"
-  );
-  // Both guards must appear in the same effect (close together in the file).
-  const isLoadedIdx = listing.indexOf("if (!isLoaded) return");
-  const isSignedInIdx = listing.indexOf("if (!isSignedIn) return");
-  assert.ok(
-    Math.abs(isSignedInIdx - isLoadedIdx) < 200,
-    "both guards must be in the same effect block (within 200 chars of each other)"
   );
 });
 

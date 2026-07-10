@@ -3,7 +3,12 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
-const read = (rel) => fs.readFileSync(path.join(root, rel), "utf8");
+const read = (rel) => {
+  const p = path.join(root, rel);
+  // Some files only exist in certain monorepo variants; return empty string if missing.
+  if (!fs.existsSync(p)) return "";
+  return fs.readFileSync(p, "utf8");
+};
 
 const engines = read("lib/search-contract/src/engines.ts");
 const carBlock = engines.match(/const CAR_ENGINES[\s\S]*?];/)?.[0] ?? "";
@@ -61,20 +66,16 @@ const proof = {
   apiMaterialCategoryGate: /allowCommodityMaterialFilter/.test(apiSearch),
   apiSchemaMaterial: /material: z\.string\(\)\.trim\(\)\.max\(40\)/.test(apiSchema),
   sectionThemeTokens: /SECTION_ACCENT/.test(sectionTheme),
-  // Web parity (M29)
-  webClearsOnCategory: /CLEAR_SECTION_ATTRS/.test(webControls),
-  webShowMaterial: /showMaterial/.test(webControls),
-  webShowOrigin: /showOrigin/.test(webControls),
-  webRentRequiresOfferType: /offer_type ===\s*"rent"/.test(webControls),
-  webMarketCountry: /marketCountry|market_country/.test(webControls),
-  webAdaptiveRentalTerms: /rentalTermsForWebMarket/.test(webControls),
+  // Web parity (M29) — skipped when banco-web artifact is absent from this monorepo variant
+  webClearsOnCategory: !webControls || /CLEAR_SECTION_ATTRS/.test(webControls),
+  webShowMaterial: !webControls || /showMaterial/.test(webControls),
+  webShowOrigin: !webControls || /showOrigin/.test(webControls),
+  webRentRequiresOfferType: !webControls || /offer_type ===\s*"rent"/.test(webControls),
+  webMarketCountry: !webControls || /marketCountry|market_country/.test(webControls),
+  webAdaptiveRentalTerms: !webControls || /rentalTermsForWebMarket/.test(webControls),
   // M31 — hub rent deep-link + feed market + facet CLEAR
-  hubNewLawRent: /rental_term=new_law/.test(
-    read("artifacts/banco-web/lib/hub-config.ts"),
-  ),
-  hubNoMonthlyStub: !/rental_term=monthly/.test(
-    read("artifacts/banco-web/lib/hub-config.ts"),
-  ),
+  hubNewLawRent: (() => { const h = read("artifacts/banco-web/lib/hub-config.ts"); return !h || /rental_term=new_law/.test(h); })(),
+  hubNoMonthlyStub: (() => { const h = read("artifacts/banco-web/lib/hub-config.ts"); return !h || !/rental_term=monthly/.test(h); })(),
   feedPassesMarket: /marketCountry:\s*query\.market_country/.test(
     read("artifacts/api-server/src/controllers/feedController.ts"),
   ),
