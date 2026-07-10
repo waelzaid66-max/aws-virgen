@@ -2,10 +2,14 @@
 
 **Goal:** Make live API **FRESH** so Device QA / EAS claims are honest.  
 **Branch:** `fix/mobile-master-stabilize`  
-**Commit (pushed):** `33ae6dd` — `fix(mobile): stabilize M01-M31 search companies + publish gate`  
+**Commits (pushed):**  
+- `33ae6dd` — `fix(mobile): stabilize M01-M31 search companies + publish gate`  
+- `636191f` — `docs(mobile): Replit redeploy runbook + ops-next-step guide`  
 **Repo:** `https://github.com/waelzaid66-max/-BANCO-CA-OOM-.git`
 
 Live host today (`banco-ca-oom.replit.app`) is **STALE** until this branch is what the API runs.
+
+**Local guide:** `node audit/mobile/scripts/ops-next-step.mjs` (exit 2 = still STALE).
 
 ---
 
