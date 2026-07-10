@@ -962,16 +962,20 @@ export default function CreateListingScreen() {
   }, [done, step]);
 
   const handleSubmit = async () => {
-    if (!category) return setError(t("create.errCategory"));
-    // Re-validate every prior step so a deep-linked / edited draft can't slip an
-    // invalid body to the API; jump back to the first failing step.
-    for (const s of [1, 2, 3, 4]) {
+    // Re-validate every wizard step (0-indexed) so a deep-linked draft can't slip
+    // an invalid body to the API; jump back to the first failing step.
+    for (const s of [0, 1, 2, 3]) {
       const err = validateStep(s);
       if (err) {
         setError(err);
         setStep(s);
         return;
       }
+    }
+    if (!category) {
+      setError(t("create.errCategory"));
+      setStep(0);
+      return;
     }
     // Requests carry no sale price; omit base_price_cash entirely so the server
     // applies its request rules instead of a 0 price.

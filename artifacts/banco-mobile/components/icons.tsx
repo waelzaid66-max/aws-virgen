@@ -235,6 +235,7 @@ const ICONS: Record<string, LucideIcon> = {
   "close-circle": CircleX,
   "cog": Cog,
   "cog-outline": Cog,
+  "create-outline": Pencil,
   "credit-card": CreditCard,
   "earth": Earth,
   "dots-horizontal": Ellipsis,

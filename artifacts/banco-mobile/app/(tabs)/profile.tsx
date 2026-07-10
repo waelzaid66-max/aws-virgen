@@ -975,7 +975,7 @@ export default function ProfileScreen() {
         label: t("profile.menuHelp"),
         onPress: () => {
           setShowMenu(false);
-          router.push("/settings");
+          router.push("/assistant");
         },
       },
       {

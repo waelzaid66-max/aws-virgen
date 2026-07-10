@@ -307,10 +307,19 @@ export function brandByValue(value: string | undefined): CarBrand | undefined {
 }
 
 /** Restore catalogue or custom brand from a listing-draft `carBrandValue`. */
+function customBrandSlugToLabel(slug: string): string {
+  return slug
+    .split(/[-_\s]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
 export function carBrandFromDraftValue(value: string): CarBrand | null {
   if (!value) return null;
   if (value.startsWith("custom:")) {
-    const label = value.slice("custom:".length);
+    const slug = value.slice("custom:".length);
+    const label = customBrandSlugToLabel(slug);
     return {
       value,
       en: label,

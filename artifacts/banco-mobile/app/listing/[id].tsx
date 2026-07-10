@@ -63,6 +63,7 @@ import { formatSpecs } from "@/constants/listingSpecs";
 import { useI18n } from "@/context/LanguageContext";
 import { useSession } from "@/context/SessionContext";
 import { useSound } from "@/context/SoundContext";
+import { useAuthGate } from "@/hooks/useAuthGate";
 import { useColors } from "@/hooks/useColors";
 
 const { width: SCREEN_W } = Dimensions.get("window");
@@ -97,6 +98,7 @@ export default function ListingDetailScreen() {
     useSession();
   const { playSound } = useSound();
   const { user, isSignedIn, isLoaded } = useUser();
+  const { requireAuth } = useAuthGate();
 
   const [listing, setListing] = useState<
     Awaited<ReturnType<typeof getListing>>["data"] | null
@@ -220,9 +222,10 @@ export default function ListingDetailScreen() {
 
   useEffect(() => {
     // Wait for Clerk to resolve; listing detail is public (optionalAuth API).
+    // Re-fetch when sign-in flips so contact_token is minted for buyers.
     if (!isLoaded) return;
     loadListing();
-  }, [loadListing, isLoaded]);
+  }, [loadListing, isLoaded, isSignedIn]);
 
   // Per-service arrival cue: a category-specific sound the first time a listing
   // resolves (vehicle = engine, property = key/latch, otherwise a light tap).
@@ -248,6 +251,7 @@ export default function ListingDetailScreen() {
   }, []);
 
   const openRfq = () => {
+    if (!requireAuth()) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setRfqState("idle");
     setRfqContact(listing?.whatsapp_enabled ? "whatsapp" : "call");
@@ -381,6 +385,7 @@ export default function ListingDetailScreen() {
   };
 
   const handleCTA = async (action: ContactLeadBodyActionType) => {
+    if (!requireAuth()) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     if (!id) return;
 
@@ -388,17 +393,23 @@ export default function ListingDetailScreen() {
       // contactLead records the contact event AND returns the revealed seller
       // phone — the public listing detail never carries it (reveal-token gated).
       const contactToken = listing?.contact_token;
-      let phone: string | undefined;
-      if (contactToken) {
-        const res = await contactLead({
-          listing_id: id,
-          action_type: action,
-          contact_token: contactToken,
-          ...buyerIdentity,
-        });
-        phone = res.data?.phone ?? undefined;
+      if (!contactToken) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        Alert.alert(t("listing.contactFailTitle"), t("listing.contactFailBody"));
+        return;
       }
-      if (!phone) return;
+      const res = await contactLead({
+        listing_id: id,
+        action_type: action,
+        contact_token: contactToken,
+        ...buyerIdentity,
+      });
+      const phone = res.data?.phone ?? undefined;
+      if (!phone) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        Alert.alert(t("listing.contactFailTitle"), t("listing.contactFailBody"));
+        return;
+      }
 
       if (action === "whatsapp") {
         await openWhatsApp(phone);
@@ -417,6 +428,7 @@ export default function ListingDetailScreen() {
 
   const openInAppChat = async () => {
     if (!id || openingChat) return;
+    if (!requireAuth()) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setOpeningChat(true);
 
@@ -444,10 +456,8 @@ export default function ListingDetailScreen() {
         },
       });
     } catch {
-      // Fall back to WhatsApp handoff if the in-app conversation can't start
-      // (e.g. listing has no linked seller account).
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-      await handleCTA("chat");
+      Alert.alert(t("listing.contactFailTitle"), t("listing.contactFailBody"));
     } finally {
       setOpeningChat(false);
     }
@@ -1607,7 +1617,19 @@ export default function ListingDetailScreen() {
           },
         ]}
       >
-        {hasSeller ? (
+        {isOwner && !isSold ? (
+          <CTAButton
+            icon="create-outline"
+            label={t("mine.edit")}
+            testLabel="owner-edit"
+            onPress={() =>
+              router.push(`/listings/edit/${listing.id}` as Href)
+            }
+            style={{ backgroundColor: colors.primary, flex: 1 }}
+            textColor={colors.primaryForeground}
+            radius={colors.radius}
+          />
+        ) : hasSeller && !isOwner ? (
           <>
             <CTAButton
               icon="call-outline"

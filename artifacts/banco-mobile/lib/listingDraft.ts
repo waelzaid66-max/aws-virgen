@@ -71,7 +71,8 @@ export function listingDraftHasContent(d: ListingDraftInput): boolean {
     d.carBrandValue ||
     d.industrialType ||
     Object.keys(d.specs).length > 0 ||
-    d.customSpecs.some((c) => c.name.trim() || c.value.trim())
+    d.customSpecs.some((c) => c.name.trim() || c.value.trim()) ||
+    d.phones.some((p) => p.number.trim())
   );
 }
 

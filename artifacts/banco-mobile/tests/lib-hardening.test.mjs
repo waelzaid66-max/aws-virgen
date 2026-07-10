@@ -467,6 +467,62 @@ test("public listing detail loads without sign-in gate", () => {
     /loadListing\(\)/,
     "listing detail must fetch for guests after Clerk loads",
   );
+  assert.match(
+    listing,
+    /\[loadListing,\s*isLoaded,\s*isSignedIn\]/,
+    "listing detail must refetch after sign-in so contact_token is available",
+  );
+});
+
+test("listing detail contact actions require auth and hide buyer CTAs for owners", () => {
+  const listing = fs.readFileSync(
+    path.join(APP_ROOT, "app", "listing", "[id].tsx"),
+    "utf8",
+  );
+  assert.match(
+    listing,
+    /handleCTA[\s\S]*requireAuth/,
+    "call/whatsapp handoff must gate guests via auth modal",
+  );
+  assert.match(
+    listing,
+    /openInAppChat[\s\S]*requireAuth/,
+    "in-app chat must gate guests via auth modal",
+  );
+  assert.match(
+    listing,
+    /hasSeller\s*&&\s*!isOwner/,
+    "buyer contact bar must not show for listing owners",
+  );
+  assert.doesNotMatch(
+    listing,
+    /catch[\s\S]*handleCTA\("chat"\)/,
+    "chat failure must not silently fall back to WhatsApp via handleCTA",
+  );
+});
+
+test("profile help menu opens assistant not settings duplicate", () => {
+  const profile = fs.readFileSync(
+    path.join(APP_ROOT, "app", "(tabs)", "profile.tsx"),
+    "utf8",
+  );
+  assert.match(
+    profile,
+    /key:\s*"help"[\s\S]*router\.push\("\/assistant"\)/,
+    "help & support must route to assistant",
+  );
+});
+
+test("create listing submit validates steps 0-3", () => {
+  const create = fs.readFileSync(
+    path.join(APP_ROOT, "app", "listings", "create.tsx"),
+    "utf8",
+  );
+  assert.match(
+    create,
+    /for\s*\(const s of \[0,\s*1,\s*2,\s*3\]\)/,
+    "submit must validate all wizard steps including category (0)",
+  );
 });
 
 test("browse cards open listing without requireAuth on home and search", () => {

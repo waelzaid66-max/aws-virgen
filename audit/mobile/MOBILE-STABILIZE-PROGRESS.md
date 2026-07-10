@@ -2,6 +2,19 @@
 
 Branch: `main` (was `fix/mobile-master-stabilize` — merged)
 
+### Wave 7 — contact + wizard fixes (2026-07-10)
+| Fix | Detail |
+|-----|--------|
+| Listing detail | Guest contact CTAs → `requireAuth`; refetch on sign-in for `contact_token` |
+| Listing detail | Owner footer = edit only; buyer bar hidden for `isOwner` |
+| Listing detail | Chat failure shows alert (no silent WhatsApp fallback) |
+| Profile | Help menu → `/assistant` (not duplicate Settings) |
+| Create | Submit validates steps **0–3** (category included) |
+| Rentals hub | Unit buttons disabled when listing id missing |
+| Draft | Phones count toward `listingDraftHasContent` |
+| Cars | Custom brand slug → title-case on draft restore |
+| Tests | lib-hardening **39/39**, production-confidence **19/19** |
+
 ### Wave 6 — product truth (`1aecea5`, 2026-07-10)
 | Fix | Detail |
 |-----|--------|

@@ -309,16 +309,24 @@ function UnitRow({
       </View>
       <View style={[styles.unitActions, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
         <Pressable
+          disabled={!id}
           onPress={() => id && router.push(`/listing/${id}`)}
-          style={[styles.unitBtn, { borderColor: colors.border }]}
+          style={[
+            styles.unitBtn,
+            { borderColor: colors.border, opacity: id ? 1 : 0.45 },
+          ]}
         >
           <AppText style={{ color: colors.foreground, fontSize: 13 }}>
             {t("rentals.hub.viewListing")}
           </AppText>
         </Pressable>
         <Pressable
+          disabled={!id}
           onPress={() => id && router.push(`/listings/edit/${id}` as Href)}
-          style={[styles.unitBtn, { borderColor: colors.primary }]}
+          style={[
+            styles.unitBtn,
+            { borderColor: colors.primary, opacity: id ? 1 : 0.45 },
+          ]}
         >
           <AppText style={{ color: colors.primary, fontSize: 13 }}>
             {t("rentals.hub.editUnit")}
