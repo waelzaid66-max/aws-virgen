@@ -24,6 +24,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppText } from "@/components/AppText";
 import { BancoLogo } from "@/components/BancoLogo";
 import { useI18n } from "@/context/LanguageContext";
+import { searchCriteriaToNavParams } from "@/lib/searchNavParams";
+import { DEFAULT_CRITERIA } from "@/lib/searchParams";
 import { useColors } from "@/hooks/useColors";
 
 type ChatMessage = {
@@ -47,6 +49,11 @@ const SCREEN_ROUTES: Record<string, Href> = {
   create_listing: "/listings/create",
   profile: "/(tabs)/profile",
   notifications: "/notifications",
+  supply_hub: "/business/supply-hub",
+  industry: "/industry",
+  rentals: "/rentals/hub" as Href,
+  billing: "/billing" as Href,
+  assistant: "/assistant",
 };
 
 export default function AssistantScreen() {
@@ -86,16 +93,26 @@ export default function AssistantScreen() {
         const resp = await askBancoAssistant({ message, history });
         const answer = resp.data?.answer?.trim();
         const actions = resp.data?.actions ?? [];
+        const errMsg = resp.error?.message?.trim();
         setMessages((prev) => [
           ...prev,
           answer
             ? { id: nextId(), role: "assistant", content: answer, actions }
-            : { id: nextId(), role: "assistant", content: t("assistant.errorBubble"), error: true },
+            : {
+                id: nextId(),
+                role: "assistant",
+                content: errMsg || t("assistant.errorBubble"),
+                error: true,
+              },
         ]);
-      } catch {
+      } catch (e) {
+        const detail =
+          e instanceof Error && e.message.trim()
+            ? e.message.trim()
+            : t("assistant.errorBubble");
         setMessages((prev) => [
           ...prev,
-          { id: nextId(), role: "assistant", content: t("assistant.errorBubble"), error: true },
+          { id: nextId(), role: "assistant", content: detail, error: true },
         ]);
       } finally {
         setSending(false);
@@ -123,11 +140,20 @@ export default function AssistantScreen() {
       return;
     }
     if (a.kind === "search") {
-      const params: Record<string, string> = {};
-      if (a.query) params.q = a.query;
-      if (a.category) params.category = a.category;
-      if (a.max_price != null) params.maxPrice = String(a.max_price);
-      if (a.has_installment) params.paymentType = "installment";
+      const params = searchCriteriaToNavParams({
+        ...DEFAULT_CRITERIA,
+        q: a.query ?? "",
+        category:
+          a.category === "car" ||
+          a.category === "real_estate" ||
+          a.category === "facilities" ||
+          a.category === "materials" ||
+          a.category === "all"
+            ? a.category
+            : DEFAULT_CRITERIA.category,
+        maxPrice: a.max_price != null ? String(a.max_price) : "",
+        paymentType: a.has_installment ? "installment" : "any",
+      });
       router.push({ pathname: "/(tabs)/search", params });
       return;
     }

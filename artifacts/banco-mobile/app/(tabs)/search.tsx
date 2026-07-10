@@ -55,16 +55,26 @@ import {
 } from "@/constants/cars";
 import { labelForValue } from "@/constants/locations";
 import { DEFAULT_MARKET_COUNTRY } from "@/constants/listingCreateTaxonomy";
+import {
+  loadPreferredMarketCountry,
+  savePreferredMarketCountry,
+} from "@/lib/marketPreference";
 import { engineByKey, enginesForCategory } from "@/constants/engines";
 import { useI18n } from "@/context/LanguageContext";
 import { SavedSearch, useSession } from "@/context/SessionContext";
 import { useSound } from "@/context/SoundContext";
-import { useAuthGate } from "@/hooks/useAuthGate";
+import {
+  hasIncomingSearchNavParams,
+  parseMobileSearchNavParams,
+  searchCriteriaToNavParams,
+} from "@/lib/searchNavParams";
 import { useColors } from "@/hooks/useColors";
 import { useSearchMiniApp } from "@/hooks/useSearchMiniApp";
 import {
+  CLEAR_SECTION_ATTRS,
   DEFAULT_CRITERIA,
   SearchCriteria,
+  criteriaKey,
   hasActiveCriteria,
   type PaymentType,
   type SearchSort,
@@ -74,11 +84,14 @@ import {
   requestNearMeCoords,
 } from "@/lib/nearMe";
 import {
-  MARKET_COUNTRIES,
-  marketCountryLabel,
+  MarketCountryButton,
+  MarketCountryPicker,
+} from "@/components/MarketCountryPicker";
+import {
   rentalTermsForSearch,
   sanitizeRentalTermForMarket,
 } from "@/lib/searchTaxonomy";
+import { sectionAccent } from "@/lib/sectionTheme";
 
 type FilterCategory = Category;
 
@@ -93,23 +106,11 @@ const CATEGORIES: FilterCategory[] = [
 // Quick brand chips = popular brands that actually have live inventory (the
 // create-safe set). The full rich catalogue is reachable via the "All brands"
 // picker; brands with no inventory there honestly return empty results.
-const QUICK_BRANDS: CarBrand[] = POPULAR_BRANDS.filter((b) => b.createSafe);
+const QUICK_BRANDS: CarBrand[] = POPULAR_BRANDS;
 
-// Car/industrial attribute fields are category-specific; clear them whenever the
-// category changes so e.g. a car fuel filter never leaks into a real-estate browse.
-const CLEAR_ATTRS: Partial<SearchCriteria> = {
-  engineKey: "all",
-  brand: null,
-  model: null,
-  fuelType: null,
-  transmission: null,
-  minYear: "",
-  maxYear: "",
-  industry: null,
-  originType: null,
-  industrialType: "all",
-  rentalTerm: null,
-};
+// Section-scoped attrs — shared CLEAR_SECTION_ATTRS from search-contract
+// (same wipe as web SearchControls on category change).
+const CLEAR_ATTRS = CLEAR_SECTION_ATTRS;
 
 // The category-independent filters, reset by the sheet's "Clear all" (combined
 // with CLEAR_ATTRS). The text query is intentionally preserved.
@@ -198,20 +199,9 @@ export default function SearchScreen() {
     cacheFeedItem,
     recordQuery,
   } = useSession();
-  const { requireAuth } = useAuthGate();
   const topPad = Platform.OS === "web" ? 67 : insets.top;
 
-  const params = useLocalSearchParams<{
-    q?: string;
-    category?: string;
-    engine?: string;
-    minPrice?: string;
-    maxPrice?: string;
-    location?: string;
-    paymentType?: string;
-    sort?: string;
-    ts?: string;
-  }>();
+  const params = useLocalSearchParams<Record<string, string | string[]>>();
 
   // Fire a coarse behaviour signal on each committed search (category intent).
   const onCommitted = useCallback(
@@ -231,10 +221,31 @@ export default function SearchScreen() {
   const { criteria, items, viewState, phase, hasNext, commit, update, applyPatch, loadMore, retry } =
     search;
 
+  // Hydrate preferred market (shared with create publish stamp) once on mount.
+  const marketHydrated = useRef(false);
+  useEffect(() => {
+    if (marketHydrated.current) return;
+    let cancelled = false;
+    void loadPreferredMarketCountry().then((iso) => {
+      if (cancelled) return;
+      marketHydrated.current = true;
+      if (iso === DEFAULT_MARKET_COUNTRY) return;
+      applyPatch({
+        marketCountry: iso,
+        rentalTerm: sanitizeRentalTermForMarket(null, iso),
+      });
+      if (items.length > 0 || phase !== "idle") retry();
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [applyPatch, retry, items.length, phase]);
+
   // Map view toggle. Only results that carry real coordinates are mappable, so
   // both the toggle's visibility and the map's honest "N on the map" caption are
   // driven by this subset — never the full result list.
   const [mapMode, setMapMode] = useState(false);
+  const [marketPickerOpen, setMarketPickerOpen] = useState(false);
   const mappableItems = useMemo(
     () =>
       items.filter(
@@ -245,12 +256,26 @@ export default function SearchScreen() {
       ),
     [items]
   );
-  const canMap = viewState === "results" && mappableItems.length > 0;
-  // Leaving results (or losing every mapped pin) drops back to the list so the
-  // map never lingers over a discover/loading/empty/error surface.
+  // Map chrome is available whenever results are showing. Page items may lack
+  // coordinates while GET /search/map still returns clusters for the same filters.
+  const inResultsView = viewState === "results";
+  const hasPagePins = mappableItems.length > 0;
+  const showMapChrome = inResultsView;
+  // Leaving results drops back to the list — never keep map over discover/empty/error.
   useEffect(() => {
-    if (!canMap && mapMode) setMapMode(false);
-  }, [canMap, mapMode]);
+    if (!inResultsView && mapMode) setMapMode(false);
+  }, [inResultsView, mapMode]);
+
+  // Sticky map is a trap: ANY criteria change (fuel, material, years, price…)
+  // returns to the list so each section's results stay the default surface.
+  // Explore-on-map still latches wantMap after the next fetch.
+  const criteriaMapKey = criteriaKey(criteria);
+  const prevCriteriaMapKey = useRef(criteriaMapKey);
+  useEffect(() => {
+    if (prevCriteriaMapKey.current === criteriaMapKey) return;
+    prevCriteriaMapKey.current = criteriaMapKey;
+    setMapMode(false);
+  }, [criteriaMapKey]);
 
   // "Explore on map" from discover: the results that decide whether a map is
   // even possible haven't loaded yet, so latch the intent. Flip to map mode the
@@ -259,17 +284,18 @@ export default function SearchScreen() {
   const [wantMap, setWantMap] = useState(false);
   useEffect(() => {
     if (!wantMap) return;
-    if (canMap) {
+    if (inResultsView) {
       setMapMode(true);
       setWantMap(false);
-    } else if (
-      viewState === "results" ||
-      viewState === "empty" ||
-      viewState === "error"
-    ) {
+      return;
+    }
+    if (viewState === "empty" || viewState === "error") {
+      if (viewState !== "error") {
+        Alert.alert(t("search.discover.exploreMap"), t("search.mapNoPins"));
+      }
       setWantMap(false);
     }
-  }, [wantMap, canMap, viewState]);
+  }, [wantMap, inResultsView, viewState, t]);
 
   // Category chips are facet-gated: only categories with live inventory show.
   // Fails open while facets load; the active category is always kept visible.
@@ -296,6 +322,8 @@ export default function SearchScreen() {
     !facetsLoading && !!visibleIndTypes && visibleIndTypes.length > 1;
   // If facets reveal the committed engine/sub-type no longer has inventory,
   // normalize criteria once and re-query (single fetch, not two updates).
+  // MUST clear dependents (originType / rentalTerm / industry / material) so
+  // hidden chrome never leaves a live API filter from another mini-app.
   useEffect(() => {
     if (facetsLoading) return;
     const patch: Partial<SearchCriteria> = {};
@@ -304,6 +332,14 @@ export default function SearchScreen() {
       !engineList.some((e) => e.key === criteria.engineKey)
     ) {
       patch.engineKey = "all";
+      // Leaving import must not keep origin_type=imported under "All".
+      if (criteria.category === "car" && criteria.originType) {
+        patch.originType = null;
+      }
+      // Leaving rent must not keep rental_term under sale/all.
+      if (criteria.category === "real_estate" && criteria.rentalTerm) {
+        patch.rentalTerm = null;
+      }
     }
     if (
       criteria.industrialType !== "all" &&
@@ -311,6 +347,11 @@ export default function SearchScreen() {
       !visibleIndTypes.includes(criteria.industrialType)
     ) {
       patch.industrialType = "all";
+      // Same clears as selectIndustrialType when collapsing to group "all".
+      if (criteria.category === "materials") {
+        patch.industry = null;
+        patch.material = null;
+      }
     }
     if (Object.keys(patch).length === 0) return;
     applyPatch(patch);
@@ -349,21 +390,45 @@ export default function SearchScreen() {
 
   const autocompleteSeq = useRef(0);
 
-  const fetchAutocomplete = useCallback(async (q: string) => {
-    if (q.length < 2) {
-      setSuggestions([]);
-      return;
-    }
-    const seq = ++autocompleteSeq.current;
-    try {
-      const res = await getAutocomplete({ q });
-      if (seq !== autocompleteSeq.current) return;
-      setSuggestions(res.data ?? []);
-    } catch {
-      if (seq !== autocompleteSeq.current) return;
-      setSuggestions([]);
-    }
-  }, []);
+  const fetchAutocomplete = useCallback(
+    async (q: string) => {
+      if (q.length < 2) {
+        setSuggestions([]);
+        return;
+      }
+      const seq = ++autocompleteSeq.current;
+      try {
+        // Scope suggestions to the active browse company — never mix villa
+        // titles into cars or steel into facilities.
+        const params: {
+          q: string;
+          category?: SearchListingsCategory;
+          industrial_type?: string;
+        } = { q };
+        if (criteria.category === "car" || criteria.category === "real_estate") {
+          params.category = criteria.category;
+        } else if (
+          criteria.category === "facilities" ||
+          criteria.category === "materials"
+        ) {
+          params.category = "industrial";
+          if (criteria.industrialType !== "all") {
+            params.industrial_type = criteria.industrialType;
+          } else {
+            const group = industrialGroupForCategory(criteria.category);
+            if (group?.length) params.industrial_type = group.join(",");
+          }
+        }
+        const res = await getAutocomplete(params);
+        if (seq !== autocompleteSeq.current) return;
+        setSuggestions(res.data ?? []);
+      } catch {
+        if (seq !== autocompleteSeq.current) return;
+        setSuggestions([]);
+      }
+    },
+    [criteria.category, criteria.industrialType],
+  );
 
   // Live typing: update the input immediately, debounce autocomplete (250ms) and
   // the committed search (350ms). The results list stays mounted throughout, so
@@ -427,46 +492,37 @@ export default function SearchScreen() {
     [update]
   );
 
-  // Re-run a saved search arriving via navigation params.
+  // Deep links / saved searches / assistant → full contract parse.
   const appliedSig = useRef<string>("");
   useEffect(() => {
-    // Navigation can arrive with a free-text query, category, engine, and/or sort.
-    if (!params.q && !params.sort && !params.category && !params.engine) return;
+    if (!hasIncomingSearchNavParams(params)) return;
     const sig = JSON.stringify(params);
     if (sig === appliedSig.current) return;
     appliedSig.current = sig;
 
-    const category = (CATEGORIES.includes(params.category as FilterCategory)
-      ? params.category
-      : "all") as FilterCategory;
-    const engineDefs = enginesForCategory(category);
-    const engineKey =
-      params.engine && engineDefs?.some((e) => e.key === params.engine)
-        ? String(params.engine)
-        : "all";
-    const pt: PaymentType =
-      params.paymentType === "installment" ? "installment" : "any";
-    const sort: SearchSort = (SORTS.includes(params.sort as SearchSort)
-      ? params.sort
-      : "recommended") as SearchSort;
-    const q = params.q ? String(params.q) : "";
-    const minP = params.minPrice ? String(params.minPrice) : "";
-    const maxP = params.maxPrice ? String(params.maxPrice) : "";
-    const loc = params.location ? String(params.location) : "";
+    let cancelled = false;
+    void (async () => {
+      const preferredMarket = await loadPreferredMarketCountry();
+      if (cancelled) return;
+      const parsed = parseMobileSearchNavParams(params);
+      const hasMarketInUrl =
+        params.market_country != null || params.marketCountry != null;
+      setDraftQuery(parsed.q);
+      setBrandValue(parsed.brand);
+      commit({
+        ...DEFAULT_CRITERIA,
+        ...parsed,
+        marketCountry: hasMarketInUrl ? parsed.marketCountry : preferredMarket,
+        rentalTerm: sanitizeRentalTermForMarket(
+          parsed.rentalTerm,
+          hasMarketInUrl ? parsed.marketCountry : preferredMarket,
+        ),
+      });
+    })();
 
-    setDraftQuery(q);
-    setBrandValue(null);
-    commit({
-      ...DEFAULT_CRITERIA,
-      q,
-      category,
-      engineKey,
-      minPrice: minP,
-      maxPrice: maxP,
-      location: loc,
-      paymentType: pt,
-      sort,
-    });
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params]);
 
@@ -478,31 +534,36 @@ export default function SearchScreen() {
 
   const handleCardPress = useCallback(
     (item: FeedItem) => {
-      if (!requireAuth()) return;
       cacheFeedItem(item);
       router.push(`/listing/${item.id}`);
     },
-    [requireAuth, cacheFeedItem],
+    [cacheFeedItem],
   );
 
   const applySaved = useCallback(
     (s: SavedSearch) => {
-      const cat = (CATEGORIES.includes(s.category as FilterCategory)
-        ? s.category
-        : "all") as FilterCategory;
-      setDraftQuery(s.q);
-      setBrandValue(null);
-      commit({
-        ...DEFAULT_CRITERIA,
-        q: s.q,
-        category: cat,
-        minPrice: s.minPrice,
-        maxPrice: s.maxPrice,
-        location: s.location,
-        paymentType: s.paymentType,
+      if (s.criteria) {
+        setDraftQuery(s.criteria.q);
+        setBrandValue(s.criteria.brand);
+        commit({ ...DEFAULT_CRITERIA, ...s.criteria });
+        return;
+      }
+      router.push({
+        pathname: "/(tabs)/search",
+        params: searchCriteriaToNavParams({
+          ...DEFAULT_CRITERIA,
+          q: s.q,
+          category: (CATEGORIES.includes(s.category as FilterCategory)
+            ? s.category
+            : "all") as FilterCategory,
+          minPrice: s.minPrice,
+          maxPrice: s.maxPrice,
+          location: s.location,
+          paymentType: s.paymentType,
+        }),
       });
     },
-    [commit]
+    [commit],
   );
 
   const selectCategory = (cat: FilterCategory) => {
@@ -510,53 +571,121 @@ export default function SearchScreen() {
     // the car term can't leak into the new category and empty its results.
     if (brandValue) setDraftQuery("");
     setBrandValue(null);
-    update({ ...CLEAR_ATTRS, category: cat });
-  };
-
-  // Discover-surface section/engine browse → filter THIS tab in place (same
-  // committed-criteria path as the persistent tabs), instead of pushing a
-  // separate /search-results screen. Sets category + engine atomically.
-  const browseSection = (cat: FilterCategory, engine: string) => {
-    if (brandValue) setDraftQuery("");
-    setBrandValue(null);
-    update({ ...CLEAR_ATTRS, category: cat, engineKey: engine });
-  };
-
-  // Discover "Explore on map" → browse a coordinate-rich category (real-estate)
-  // and latch the intent to flip to the map once mappable results land.
-  const exploreOnMap = () => {
-    if (brandValue) setDraftQuery("");
-    setBrandValue(null);
-    setWantMap(true);
-    update({ ...CLEAR_ATTRS, category: "real_estate", engineKey: "all" });
-  };
-
-  // Engine chip → committed criteria; sale (تمليك) clears rent-only filters.
-  const selectEngine = (key: string) => {
-    const engine = engineByKey(criteria.category, key);
-    const patch: Partial<SearchCriteria> = { engineKey: key };
-    if (engine?.params.offer_type === "sale") patch.rentalTerm = null;
-    if (engine?.params.fuel_type) patch.fuelType = engine.params.fuel_type;
-    if (engine?.params.transmission) {
-      patch.transmission = engine.params.transmission;
+    setSuggestions([]);
+    const patch: Partial<SearchCriteria> = { ...CLEAR_ATTRS, category: cat };
+    // Installment chrome is car/RE only — never carry into facilities/materials.
+    if (cat === "facilities" || cat === "materials") {
+      patch.paymentType = "any";
     }
     update(patch);
   };
 
-  const selectIndustrialType = (type: IndustrialType) =>
-    update({ industrialType: type });
+  // Discover-surface section/engine browse → filter THIS tab in place (same
+  // committed-criteria path as the persistent tabs), instead of pushing a
+  // separate /search-results screen. Sets category + engine atomically; mirrors
+  // selectEngine so import also latches originType (one job, one criteria write).
+  const browseSection = (cat: FilterCategory, engine: string) => {
+    if (brandValue) setDraftQuery("");
+    setBrandValue(null);
+    setSuggestions([]);
+    const def = engineByKey(cat, engine);
+    const patch: Partial<SearchCriteria> = {
+      ...CLEAR_ATTRS,
+      category: cat,
+      engineKey: engine,
+    };
+    if (def?.params.origin_type) {
+      patch.originType = def.params.origin_type;
+    }
+    // Rent-only filters only survive an explicit rent engine browse.
+    if (def?.params.offer_type !== "rent") {
+      patch.rentalTerm = null;
+    }
+    if (cat === "facilities" || cat === "materials") {
+      patch.paymentType = "any";
+    }
+    update(patch);
+  };
+
+  // Discover "Explore on map" → latch map intent on the CURRENT category so we
+  // never hijack cars/industrial into real-estate. Host falls back to list if
+  // the browse has no coordinates.
+  const exploreOnMap = (section: Category) => {
+    if (brandValue) setDraftQuery("");
+    setBrandValue(null);
+    setWantMap(true);
+    const cat = section === "all" ? "real_estate" : section;
+    update({
+      ...CLEAR_ATTRS,
+      category: cat,
+      engineKey: "all",
+    });
+  };
+
+  // Engine chip → committed criteria. Non-rent RE engines clear rent-only
+  // filters so villa/warehouse/finance chips never keep a stale rental_term.
+  // Import cars also sets originType so the filter matches industrial origin axis.
+  // Fuel/transmission are FilterSheet-only (not engines) — no dual write here.
+  const selectEngine = (key: string) => {
+    const engine = engineByKey(criteria.category, key);
+    const patch: Partial<SearchCriteria> = { engineKey: key };
+    if (criteria.category === "real_estate") {
+      patch.rentalTerm =
+        engine?.params.offer_type === "rent" ? criteria.rentalTerm : null;
+    }
+    if (engine?.params.origin_type) {
+      patch.originType = engine.params.origin_type;
+    } else if (criteria.category === "car" && criteria.originType) {
+      patch.originType = null;
+    }
+    update(patch);
+  };
+
+  const selectIndustrialType = (type: IndustrialType) => {
+    const patch: Partial<SearchCriteria> = { industrialType: type };
+    // Commodity browse must not keep a stale factory-sector industry filter.
+    if (
+      criteria.category === "materials" &&
+      (type === "all" || type === "raw_material")
+    ) {
+      patch.industry = null;
+    }
+    // Machine / production_line don't use commodity material chips.
+    if (
+      criteria.category === "materials" &&
+      type !== "all" &&
+      type !== "raw_material"
+    ) {
+      patch.material = null;
+    }
+    update(patch);
+  };
 
   const selectOrigin = (o: "all" | "local" | "imported") =>
     update({ originType: o === "all" ? null : o });
 
-  const selectRentalTerm = (term: string) =>
-    update({ rentalTerm: criteria.rentalTerm === term ? null : term });
+  // Materials own local/imported logistics; facilities are site assets.
+  const showOriginChrome = criteria.category === "materials";
 
-  const selectMarketCountry = (code: string) =>
+  const selectRentalTerm = (term: string) => {
+    // Choosing a rental system implies rent browse — latch the rent engine so
+    // the shopper never filters "old_law" under villa/sale without offer_type.
+    const next = criteria.rentalTerm === term ? null : term;
+    update({
+      rentalTerm: next,
+      ...(next && criteria.category === "real_estate"
+        ? { engineKey: "rent" }
+        : {}),
+    });
+  };
+
+  const selectMarketCountry = (code: string) => {
+    void savePreferredMarketCountry(code);
     update({
       marketCountry: code,
       rentalTerm: sanitizeRentalTermForMarket(criteria.rentalTerm, code),
     });
+  };
 
   const toggleNearMe = useCallback(async () => {
     if (criteria.nearMeEnabled) {
@@ -589,8 +718,8 @@ export default function SearchScreen() {
 
   const showRentalTerms =
     criteria.category === "real_estate" &&
-    engineByKey(criteria.category, criteria.engineKey)?.params.offer_type !==
-      "sale";
+    engineByKey(criteria.category, criteria.engineKey)?.params.offer_type ===
+      "rent";
 
   // Quick brand chip inside the sheet (closes the sheet via browseBrand).
   const browseBrandChip = useCallback(
@@ -601,37 +730,68 @@ export default function SearchScreen() {
   // "Clear all" inside the sheet: drop every filter but keep the text query.
   const clearAllFilters = useCallback(() => {
     setBrandValue(null);
+    void savePreferredMarketCountry(DEFAULT_MARKET_COUNTRY);
     update({ ...CLEAR_ATTRS, ...CLEAR_FILTERS });
   }, [update]);
 
   const handleSaveSearch = () => {
-    saveSearch({
+    const snapshot: SearchCriteria = {
+      ...criteria,
       q: draftQuery.trim(),
-      category: criteria.category,
-      minPrice: criteria.minPrice,
-      maxPrice: criteria.maxPrice,
-      location: criteria.location,
-      paymentType: criteria.paymentType,
+    };
+    saveSearch({
+      criteria: snapshot,
+      q: snapshot.q,
+      category: snapshot.category,
+      minPrice: snapshot.minPrice,
+      maxPrice: snapshot.maxPrice,
+      location: snapshot.location,
+      paymentType: snapshot.paymentType,
     });
   };
 
+  // Count filters owned by the active browse company (badge must not lie).
+  const rentEngineActive =
+    criteria.category === "real_estate" &&
+    engineByKey(criteria.category, criteria.engineKey)?.params.offer_type === "rent";
   const activeFilterCount = [
     criteria.category !== "all",
+    criteria.engineKey !== "all",
+    criteria.category === "facilities" || criteria.category === "materials"
+      ? criteria.industrialType !== "all"
+      : false,
     !!criteria.minPrice || !!criteria.maxPrice,
     !!criteria.location,
-    criteria.paymentType !== "any",
+    criteria.paymentType !== "any" &&
+      (criteria.category === "car" ||
+        criteria.category === "real_estate" ||
+        criteria.category === "all"),
+    rentEngineActive && !!criteria.rentalTerm,
+    criteria.category === "car" && (!!criteria.brand || !!criteria.model),
+    criteria.category === "car" && !!criteria.fuelType,
+    criteria.category === "car" && !!criteria.transmission,
+    criteria.category === "car" && (!!criteria.minYear || !!criteria.maxYear),
+    (criteria.category === "facilities" ||
+      (criteria.category === "materials" &&
+        (criteria.industrialType === "machine" ||
+          criteria.industrialType === "production_line"))) &&
+      !!criteria.industry,
+    (criteria.category === "car" || criteria.category === "materials") &&
+      !!criteria.originType,
+    criteria.category === "materials" && !!criteria.material,
+    criteria.nearMeEnabled,
+    criteria.marketCountry !== DEFAULT_MARKET_COUNTRY,
   ].filter(Boolean).length;
 
-  const searchSaved =
-    !!draftQuery.trim() &&
-    isSearchSaved({
-      q: draftQuery.trim(),
-      category: criteria.category,
-      minPrice: criteria.minPrice,
-      maxPrice: criteria.maxPrice,
-      location: criteria.location,
-      paymentType: criteria.paymentType,
-    });
+  const searchSaved = isSearchSaved({
+    criteria: { ...criteria, q: draftQuery.trim() },
+    q: draftQuery.trim(),
+    category: criteria.category,
+    minPrice: criteria.minPrice,
+    maxPrice: criteria.maxPrice,
+    location: criteria.location,
+    paymentType: criteria.paymentType,
+  });
 
   const rowDir = isRTL ? "row-reverse" : "row";
   const textAlign = isRTL ? "right" : "left";
@@ -813,34 +973,44 @@ export default function SearchScreen() {
         </Pressable>
       </View>
 
-      {/* Persistent, always-visible section selector — the primary "selection
-          tool". Picking a section sets criteria.category, which makes the
-          criteria active and filters the list in place (no navigating away). */}
+      {/* Primary chrome: categories only. Engines / industrial / origin stay
+          one compact row. Country is a single searchable sheet (not chips).
+          Rent engines are real (offer_type) — see search-contract engines. */}
       <CategoryTabs
         selected={criteria.category}
         onChange={selectCategory}
         visible={shownCategories}
       />
-      {/* In-place sub-filters for car / real-estate (new/used, property type,
-          financing, …), surfaced under the tabs instead of buried in the filter
-          sheet. Empty for every other section, so this row only appears where it
-          applies. No rent/lease chip — that data does not exist (see
-          constants/engines.ts). */}
-      {!facetsLoading && engineList.length > 1 && !showIndustrialChips && (
-        <EngineChips
-          engines={engineList}
-          selected={criteria.engineKey}
-          onChange={selectEngine}
+      <View style={[styles.secondaryChrome, { flexDirection: rowDir }]}>
+        {!facetsLoading && engineList.length > 1 && !showIndustrialChips ? (
+          <View style={styles.secondaryChromeFlex}>
+            <EngineChips
+              engines={engineList}
+              selected={criteria.engineKey}
+              onChange={selectEngine}
+              accent={sectionAccent(criteria.category)}
+            />
+          </View>
+        ) : null}
+        {showIndustrialChips ? (
+          <View style={styles.secondaryChromeFlex}>
+            <IndustrialSubChips
+              types={visibleIndTypes!}
+              selected={criteria.industrialType}
+              onChange={selectIndustrialType}
+              accent={sectionAccent(criteria.category)}
+            />
+          </View>
+        ) : null}
+        <MarketCountryButton
+          selected={criteria.marketCountry}
+          onPress={() => {
+            playSound("tap");
+            setMarketPickerOpen(true);
+          }}
         />
-      )}
-      {showIndustrialChips && (
-        <IndustrialSubChips
-          types={visibleIndTypes!}
-          selected={criteria.industrialType}
-          onChange={selectIndustrialType}
-        />
-      )}
-      {activeGroup ? (
+      </View>
+      {showOriginChrome ? (
         <View style={[styles.originRow, { flexDirection: rowDir }]}>
           {(["all", "local", "imported"] as const).map((o) => {
             const active = originKey === o;
@@ -854,7 +1024,9 @@ export default function SearchScreen() {
                 style={[
                   styles.originChip,
                   {
-                    backgroundColor: active ? colors.primary : colors.secondary,
+                    backgroundColor: active
+                      ? sectionAccent(criteria.category)
+                      : colors.secondary,
                   },
                 ]}
                 testID={`search-origin-${o}`}
@@ -870,7 +1042,7 @@ export default function SearchScreen() {
                   ]}
                 >
                   {o === "all"
-                    ? t("search.any")
+                    ? t("home.engines.all")
                     : t(`create.opts.${o}`)}
                 </AppText>
               </Pressable>
@@ -878,89 +1050,51 @@ export default function SearchScreen() {
           })}
         </View>
       ) : null}
+      {/* Shopper rent browse only — host ops live on Profile → Rental hub. */}
       {showRentalTerms ? (
-        <>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={[styles.originRow, { flexDirection: rowDir }]}
-          >
-            {MARKET_COUNTRIES.map((m) => {
-              const active = criteria.marketCountry === m.value;
-              return (
-                <Pressable
-                  key={m.value}
-                  onPress={() => {
-                    playSound("tap");
-                    selectMarketCountry(m.value);
-                  }}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={[
+            styles.rentalChrome,
+            { flexDirection: rowDir },
+          ]}
+        >
+          {rentalTerms.map((r) => {
+            const active = criteria.rentalTerm === r.value;
+            return (
+              <Pressable
+                key={r.value}
+                onPress={() => {
+                  playSound("tap");
+                  selectRentalTerm(r.value);
+                }}
+                style={[
+                  styles.originChip,
+                  {
+                    backgroundColor: active
+                      ? sectionAccent(criteria.category)
+                      : colors.secondary,
+                  },
+                ]}
+                testID={`search-rental-${r.value}`}
+              >
+                <AppText
                   style={[
-                    styles.originChip,
+                    styles.originChipText,
                     {
-                      backgroundColor: active
-                        ? colors.primary
-                        : colors.secondary,
+                      color: active
+                        ? colors.primaryForeground
+                        : colors.mutedForeground,
                     },
                   ]}
-                  testID={`search-market-${m.value}`}
                 >
-                  <AppText
-                    style={[
-                      styles.originChipText,
-                      {
-                        color: active
-                          ? colors.primaryForeground
-                          : colors.mutedForeground,
-                      },
-                    ]}
-                  >
-                    {marketCountryLabel(m.value, isRTL)}
-                  </AppText>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={[styles.originRow, { flexDirection: rowDir }]}
-          >
-            {rentalTerms.map((r) => {
-              const active = criteria.rentalTerm === r.value;
-              return (
-                <Pressable
-                  key={r.value}
-                  onPress={() => {
-                    playSound("tap");
-                    selectRentalTerm(r.value);
-                  }}
-                  style={[
-                    styles.originChip,
-                    {
-                      backgroundColor: active
-                        ? colors.primary
-                        : colors.secondary,
-                    },
-                  ]}
-                  testID={`search-rental-${r.value}`}
-                >
-                  <AppText
-                    style={[
-                      styles.originChipText,
-                      {
-                        color: active
-                          ? colors.primaryForeground
-                          : colors.mutedForeground,
-                      },
-                    ]}
-                  >
-                    {isRTL ? r.ar : r.en}
-                  </AppText>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
-        </>
+                  {isRTL ? r.ar : r.en}
+                </AppText>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
       ) : null}
 
       {/* Orientation line: how many results the current criteria produced.
@@ -992,7 +1126,26 @@ export default function SearchScreen() {
         onSelectEngine={selectEngine}
         onBrowseBrand={browseBrandChip}
         onOpenBrandPicker={() => setCarPickerOpen(true)}
-        onUpdate={update}
+        onUpdate={(partial) => {
+          if (partial.marketCountry) {
+            void savePreferredMarketCountry(partial.marketCountry);
+          }
+          // FilterSheet rental-term toggle must latch rent engine (same as chrome).
+          if (
+            partial.rentalTerm &&
+            criteria.category === "real_estate" &&
+            criteria.engineKey !== "rent"
+          ) {
+            partial = { ...partial, engineKey: "rent" };
+          }
+          if (
+            partial.rentalTerm === null &&
+            Object.prototype.hasOwnProperty.call(partial, "rentalTerm")
+          ) {
+            // clearing term alone is fine
+          }
+          update(partial);
+        }}
         onOpenLocationPicker={() => setLocationPickerOpen(true)}
         onClearLocation={() => update({ location: "" })}
         onToggleNearMe={() => void toggleNearMe()}
@@ -1050,7 +1203,7 @@ export default function SearchScreen() {
           overlay={overlay}
         />
 
-        {mapMode && canMap ? (
+        {mapMode && inResultsView ? (
           <SearchResultsMap
             items={mappableItems}
             criteria={criteria}
@@ -1069,7 +1222,7 @@ export default function SearchScreen() {
           />
         ) : null}
 
-        {canMap ? (
+        {showMapChrome ? (
           <View
             style={[styles.mapToggleWrap, { bottom: insets.bottom + 80 }]}
             pointerEvents="box-none"
@@ -1096,7 +1249,9 @@ export default function SearchScreen() {
               <AppText style={[styles.mapToggleText, { color: colors.background }]}>
                 {mapMode
                   ? t("search.viewList")
-                  : `${t("search.viewMap")} (${mappableItems.length})`}
+                  : hasPagePins
+                    ? `${t("search.viewMap")} (${mappableItems.length})`
+                    : t("search.viewMap")}
               </AppText>
             </Pressable>
           </View>
@@ -1130,6 +1285,16 @@ export default function SearchScreen() {
           setCarPickerOpen(false);
         }}
       />
+
+      <MarketCountryPicker
+        visible={marketPickerOpen}
+        selected={criteria.marketCountry}
+        onClose={() => setMarketPickerOpen(false)}
+        onSelect={(iso) => {
+          selectMarketCountry(iso);
+          setMarketPickerOpen(false);
+        }}
+      />
     </View>
   );
 }
@@ -1157,6 +1322,24 @@ const styles = StyleSheet.create({
   },
   mapToggleText: { fontSize: 14, fontWeight: "700" },
   resultsCount: { fontSize: 12.5, paddingHorizontal: 16, paddingTop: 8 },
+  secondaryChrome: {
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingTop: 6,
+    minHeight: 0,
+  },
+  secondaryChromeFlex: {
+    flex: 1,
+    minWidth: 0,
+  },
+  rentalChrome: {
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingTop: 6,
+    paddingBottom: 2,
+  },
   originRow: {
     gap: 8,
     paddingHorizontal: 16,

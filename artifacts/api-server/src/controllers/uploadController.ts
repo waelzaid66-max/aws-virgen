@@ -6,6 +6,7 @@ import { listingMedia, listings, users } from "@workspace/db/schema";
 import { ObjectNotFoundError, UploadOwnershipError } from "../lib/objectStorage";
 import { getObjectStorageService } from "../lib/objectStorageProvider";
 import { publicVisibilityConditions } from "../lib/feedVisibility";
+import { escapeLikeLiteral } from "../lib/sqlLikeEscape";
 import {
   recordUploadClaim,
   assertCallerMayUseUpload,
@@ -53,11 +54,6 @@ const ALLOWED_CONTENT_TYPES = new Set([
 ]);
 
 const UPLOADS_PATH_PREFIX = "/api/v1/uploads/objects/";
-
-/** Escape `%`, `_`, and `\` so user-supplied path segments cannot widen SQL LIKE. */
-function escapeLikeLiteral(segment: string): string {
-  return segment.replace(/\\/g, "\\\\").replace(/%/g, "\\%").replace(/_/g, "\\_");
-}
 
 const objectStorageService = getObjectStorageService();
 

@@ -1,6 +1,6 @@
 ---
 name: BANCO browse-category grouping (client)
-description: How the 4 user-facing browse categories map onto the 3-value API category enum, and why industrial groups must be client-filtered.
+description: How the 4 user-facing browse categories map onto the 3-value API category enum, and how industrial groups are filtered.
 ---
 
 # BANCO browse-category grouping
@@ -10,31 +10,27 @@ The mobile app shows **4 browse categories** to users: `car`, `real_estate`,
 `category` enum has only **3** values: `car | real_estate | industrial`.
 
 **Rule:** `facilities` and `materials` BOTH map to API `category=industrial` and
-are separated **client-side** by each item's `industrial_type`. Helpers live in
-`components/CategoryTabs.tsx`: `apiCategoryFor`, `industrialGroupForCategory`,
-`feedItemMatchesCategory`, plus `FACILITIES_TYPES` / `MATERIALS_TYPES` /
-`ALL_INDUSTRIAL_TYPES`.
+are separated by each item's `industrial_type`. Helpers live in
+`@workspace/taxonomy/categories` (and mobile `CategoryTabs`): `apiCategoryFor`,
+`industrialGroupForCategory`, `FACILITIES_TYPES` / `MATERIALS_TYPES`.
 
-**Why client-side, not the `industrial_type` API param:** the `getFeed`
-`industrial_type` param enum is missing `raw_material` (DB + listingAttributes
-have it, the param does not). Filtering by the API param would make
-`raw_material` listings unreachable. So the contract was extended additively:
-`FeedItem.industrial_type` (nullable string) is now surfaced by the BFF, and the
-client filters groups by it. This is uniform across home, search, and the
-industry hub — never branch one surface onto the param and another onto the
-client filter.
+**Server filter (current):** `industrial_type` query param accepts the full
+subtype set including `raw_material` (see `INDUSTRIAL_SUBTYPES` in
+`artifacts/api-server/src/validators/schemas.ts`). Search/feed/map push the
+param into `listing_attributes.industrial_type` via `inArray` — do **not**
+client-filter away from the API when browsing a group; send the comma-joined
+group list (or a single subtype).
+
+**Historical note:** an older memory claimed the feed param omitted
+`raw_material`. That is **obsolete** — the param enum includes it. Prefer the
+API filter; client-side group helpers remain for UI chips and Discover only.
 
 **How to apply:**
-- For a group category, fetch `category=industrial` (no `industrial_type` param)
-  and over-fetch (home uses `limit = PAGE_SIZE * 2`) because client-filtering
-  thins each page. Server cursor is independent of the client filter, so
-  pagination/load-more stays correct.
-- Ads/sponsored items have `industrial_type = null` → they drop out of group
-  views. Accepted.
-- Known minor edge: selecting a single rare sub-type can yield an all-filtered
-  (empty) first page while `has_next` is true; over-fetch mitigates but does not
-  fully eliminate it. Group-level ("all" sub-type) selection is robust.
+- For a group category, fetch `category=industrial` with
+  `industrial_type=<group join>` from `industrialGroupForCategory`.
+- Ads/sponsored items with `industrial_type = null` drop out of typed group
+  views when the subtype filter is set. Accepted.
 - Create/RFQ forms still use the raw 3-value API category enum (car/real_estate/
-  industrial) — do NOT give them facilities/materials.
+  industrial) — do NOT give them facilities/materials as API categories.
 - Exact AR category labels are a hard product requirement: سيارات / عقارات /
   مصانع وأراضي / مواد خام وخطوط إنتاج (keys `home.categories.*`).

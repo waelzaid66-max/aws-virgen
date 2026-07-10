@@ -89,6 +89,8 @@ node scripts/staging-p0-smoke.mjs
 - [x] `ensureSchema` + `uploadClaims` + `health` tests in CI suite
 - [x] Staging verify script: `scripts/verify-upload-claims-schema.mjs`
 - [x] Staging upload smoke script: `scripts/staging-p0-smoke.mjs`
+- [x] Pre-redeploy static gate: `pnpm run ops:code-gate` (branch has probe signals)
+- [ ] **Redeploy** stabilize API → `pnpm run ops:post-redeploy` exit 0 (FRESH)
 - [ ] Run verify + smoke **on your staging host** (needs env secrets)
 
 **Next:** RC validation / EAS preview — not cloud production deploy. B5 Paymob remains admin-only.

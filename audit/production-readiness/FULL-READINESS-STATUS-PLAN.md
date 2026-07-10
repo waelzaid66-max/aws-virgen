@@ -1,10 +1,11 @@
 # خطة الجاهزية الكاملة — أين وصلنا؟ وهل اكتملت الأهداف؟
 
-**التاريخ:** 2026-07-08  
-**الفرع:** `main` @ `facd6fc`  
-**نوع الوثيقة:** خطة حالة + مسار عمل (مثل الخطة الأولى للصيانة) — صادقة 100%
+**التاريخ:** 2026-07-10  
+**الفرع:** `fix/mobile-master-stabilize` (عمل محلي؛ Live قد يبقى على نشر أقدم)  
+**نوع الوثيقة:** خطة حالة + مسار عمل — صادقة 100%
 
-> **المبدأ الثابت:** مسار نشر الإعلان (create → photos → publish → feed/search) **محمي**. لا تفعيل Paymob. لا هدم لأسطح الموبايل/الويب/الأقسام.
+> **المبدأ الثابت:** مسار نشر الإعلان (create → photos → publish → feed/search) **محمي**. لا تفعيل Paymob. لا هدم لأسطح الموبايل/الويب/الأقسام.  
+> **بوابة الموبايل الوحيدة:** `audit/mobile/MOBILE-PUBLISH-SUCCESS-GATE.md`
 
 ---
 
@@ -12,11 +13,11 @@
 
 | السؤال | الجواب |
 |--------|--------|
-| **هل الأهداف اكتملت؟** | **جزئياً — ~70–75% من مسار الجاهزية العامة** |
-| **أهداف صيانة المنتج/البحث/الأمان (موجات 1–5 + P0/P1)** | **نعم — اكتملت ككود وتوثيق** |
-| **أهداف الإطلاق العام (متجر + API prod)** | **لا — ينقص تنفيذ staging/EAS/أجهزة/أسرار** |
-| **هل فيه مشاكل تحتاج صيانة كود الآن؟** | **لا مشاكل كود حرجة مفتوحة تمنع الاستمرار** — المتبقي تشغيلي (بيئة + قرارات) |
-| **الحكم** | Staging: **GO مشروط** · Production: **NO-GO** حتى smoke بشري |
+| **هل الأهداف اكتملت؟** | **جزئياً** — كود الموبايل/أمان/بحث ✅ · تشغيل متجر ❌ |
+| **أهداف صيانة المنتج/البحث/الأمان + stabilize M01–M31** | **نعم — اكتملت ككود وتوثيق على الفرع** |
+| **أهداف الإطلاق العام (متجر + API prod)** | **لا — ينقص redeploy + staging/EAS/أجهزة/أسرار** |
+| **هل فيه مشاكل كود حرجة تمنع الاستمرار؟** | **لا مثبتة** — المتبقي تشغيلي |
+| **الحكم** | Staging: **GO مشروط بـ Wave A + redeploy** · Production: **NO-GO** حتى Device QA |
 
 ---
 
@@ -179,7 +180,8 @@
 - [x] Expo/EAS config + monorepo Metro (~18/22)
 - [x] سبعة ركائز (وثائق) + RC تقارير + OPEN-ITEMS + secrets inventory
 - [x] Website separation plan (تخطيط)
-- [x] بوابات محلية: typecheck، lint، 23 mobile، confidence
+- [x] بوابات محلية: typecheck، lint، **34** mobile، confidence (**19/19** أو **17/17** مع `--skip-typecheck`)
+- [x] فهرس البنية `ARCHITECTURE-FILE-INDEX.md` + موجة `WAVE-MOBILE-STABILIZE-ISOLATION.md`
 - [x] حماية مسار النشر في نطاق الـdiff الحالي
 - [x] Release Freeze entered (engineering)
 
@@ -214,11 +216,13 @@
 | المصدر | دوره |
 |--------|------|
 | هذا الملف | **الحالة الكلية + المسار المتبقي** |
+| `audit/mobile/MOBILE-PUBLISH-SUCCESS-GATE.md` | **بوابة نجاح الموبايل / المتجر** |
 | `MASTER-MAINTENANCE-READINESS-PLAN.md` | تاريخ موجات الصيانة 1–5 / B / P |
 | `production-readiness/README.md` | فهرس 21 مرحلة |
 | `FULL-STRICT-AUDIT-REPORT.md` | نتائج الاختبارات الصارمة |
 | `RELEASE-CANDIDATE-FINAL.md` | حكم GO/NO-GO |
 | `PHASE-LISTING-PUBLISH-LIFECYCLE.md` | سلامة النشر |
+| `audit/ARCHITECTURE-FILE-INDEX.md` | فهرس البنية والملفات |
 | `STATUS_REPORT.md` | ما تم تسليمه كمنتج (حدّث التاريخ عند الدفع) |
 
 ---

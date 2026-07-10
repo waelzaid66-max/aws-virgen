@@ -1,13 +1,13 @@
 {
   "schema": "banco-aws-virgen-sync/1",
-  "generatedAt": "2026-07-09T07:10:11.702Z",
-  "releaseTag": "v1.0.0-rc.2",
+  "generatedAt": "2026-07-10T13:55:15.215Z",
+  "releaseTag": "v1.1.0-stabilize-2026-07-10",
   "primaryRepository": "waelzaid66-max/-BANCO-CA-OOM-",
   "awsVirgenRepository": "waelzaid66-max/aws-virgen",
   "commit": {
-    "full": "3a95afaa69909c097d87babc9b372ffe9c298f1e",
-    "short": "3a95afa",
-    "subject": "docs: update primary agent closure message @ 0391ef4"
+    "full": "42bc716602a85ecfd70d5dcdc04325f8b1a83308",
+    "short": "42bc716",
+    "subject": "fix(mobile): listing modal touch-safe + filter sort accents + virgen PS1"
   },
   "syncPolicy": "merge primary main into aws-virgen main (full tree, history preserved)",
   "ci": {
@@ -72,6 +72,7 @@
       "WAVE-B2-FINANCE-HUB.md",
       "WAVE-B3-BILLING-NOTIFICATIONS.md",
       "WAVE-B4-EXPORT.md",
+      "WAVE-MOBILE-STABILIZE-ISOLATION.md",
       "WAVE-P0-STAGING-VALIDATION.md",
       "WAVE-P2-INFRA.md",
       "WAVE-PH1-PRODUCTION-HARDENING.md",
@@ -107,12 +108,14 @@
       "EAS_BUILD.md",
       "FINAL_AUDIT.md",
       "FINAL_RELEASE_CHECKLIST.md",
+      "FULL-STABLE-SNAPSHOT-2026-07-10.md",
       "KNOWN_LIMITATIONS.md",
       "PERFORMANCE_REPORT.md",
       "PRIMARY_AGENT_HANDOFF.md",
       "PROJECT_CONTEXT.md",
       "RELEASE_CHECKLIST.md",
       "RELEASE_NOTES_v1.0.0-rc.2.md",
+      "RELEASE_NOTES_v1.1.0-stabilize-2026-07-10.md",
       "REPLIT_GOOGLE_AWS_UNIFIED_RUNBOOK.md",
       "REPLIT_HANDOFF.md",
       "SECURITY_REPORT.md",

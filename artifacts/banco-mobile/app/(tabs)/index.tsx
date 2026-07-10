@@ -78,8 +78,10 @@ import {
 } from "@/constants/feed";
 import { useI18n } from "@/context/LanguageContext";
 import { useSession } from "@/context/SessionContext";
-import { useAuthGate } from "@/hooks/useAuthGate";
 import { useColors } from "@/hooks/useColors";
+import { DEFAULT_MARKET_COUNTRY } from "@/constants/listingCreateTaxonomy";
+import { loadPreferredMarketCountry } from "@/lib/marketPreference";
+import { sectionAccent } from "@/lib/sectionTheme";
 
 const PAGE_SIZE = 20;
 const SCROLL_SIGNAL_THROTTLE_MS = 3000;
@@ -272,7 +274,7 @@ function HeaderSpark() {
 export default function FeedScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { t, isRTL } = useI18n();
+  const { t, isRTL, ready: langReady } = useI18n();
   const { width: windowWidth } = useWindowDimensions();
   // Responsive grid (web only): native stays single-column full-width cards.
   // Wide screens fan the feed into 2–3 columns and cap+center the content so
@@ -294,7 +296,6 @@ export default function FeedScreen() {
       : 16;
   const { sessionId, isSaved, toggleSave, recentlyViewed, listingsVersion } =
     useSession();
-  const { requireAuth } = useAuthGate();
   const { isSignedIn, user } = useUser();
   const role = (user?.publicMetadata?.role as string) || "";
   const isBusiness = ["dealer", "company", "enterprise"].includes(role);
@@ -317,6 +318,10 @@ export default function FeedScreen() {
   const [industrialType, setIndustrialType] = useState<IndustrialType>("all");
   // Per-section engine filter (cars / real-estate). Key into constants/engines.
   const [engineKey, setEngineKey] = useState<string>("all");
+  // Same preferred market as Search/Create — scopes home feed inventory.
+  const [marketCountry, setMarketCountry] = useState(DEFAULT_MARKET_COUNTRY);
+  const [marketReady, setMarketReady] = useState(false);
+  const prefsReady = langReady && marketReady;
   const [items, setItems] = useState<FeedItem[]>([]);
   const [cursor, setCursor] = useState<string | undefined>();
   const [hasNext, setHasNext] = useState(true);
@@ -454,6 +459,7 @@ export default function FeedScreen() {
         const params: Parameters<typeof getFeed>[0] = {
           limit: PAGE_SIZE,
           session_id: sessionId,
+          market_country: marketCountry,
         };
         if (apiCat) {
           params.category = apiCat;
@@ -488,7 +494,7 @@ export default function FeedScreen() {
         if (reset) setError(true);
       }
     },
-    [category, industrialType, engineKey, sessionId, prefetchImages]
+    [category, industrialType, engineKey, marketCountry, sessionId, prefetchImages]
   );
 
   // Discovery rails — fetched once; independent of the category filter below.
@@ -497,13 +503,18 @@ export default function FeedScreen() {
   const loadRails = useCallback(async () => {
     const [trendingRes, poolRes, industrialRes, geoCity] = await Promise.all([
       getTrending().catch(() => ({ data: [] as FeedItem[] })),
-      getFeed({ limit: 40, session_id: sessionId }).catch(() => ({
+      getFeed({
+        limit: 40,
+        session_id: sessionId,
+        market_country: marketCountry,
+      }).catch(() => ({
         data: [] as FeedItem[],
       })),
       getFeed({
         category: "industrial" as GetFeedCategory,
         limit: 20,
         session_id: sessionId,
+        market_country: marketCountry,
       }).catch(() => ({ data: [] as FeedItem[] })),
       detectCity().catch(() => null as string | null),
     ]);
@@ -532,7 +543,7 @@ export default function FeedScreen() {
     setRecentlyAddedItems(pool.slice(0, 12));
 
     setIndustrialItems(industrialRes.data ?? []);
-  }, [sessionId]);
+  }, [sessionId, marketCountry]);
 
   const loadRecommendations = useCallback(async () => {
     if (!isSignedIn) {
@@ -546,6 +557,20 @@ export default function FeedScreen() {
       setRecommendedItems([]);
     }
   }, [isSignedIn]);
+
+  // Hydrate preferred market once (shared with Search + Create publish stamp).
+  useEffect(() => {
+    let cancelled = false;
+    void loadPreferredMarketCountry().then((iso) => {
+      if (!cancelled) {
+        setMarketCountry(iso);
+        setMarketReady(true);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     loadRails();
@@ -570,16 +595,28 @@ export default function FeedScreen() {
     loadRecommendations();
   }, [listingsVersion, fetchFeed, loadRails, loadRecommendations]);
 
+  // Keep the previous feed visible while a category/engine change loads so the
+  // home tab never flashes an empty skeleton (search already preserves results).
+  // Only the true first load (no items yet) uses the full-list skeleton.
   useEffect(() => {
-    setLoading(true);
+    if (!prefsReady) return;
+    let cancelled = false;
+    const isFirstPaint = items.length === 0;
+    if (isFirstPaint) setLoading(true);
     setError(false);
     setCursor(undefined);
     setHasNext(true);
-    fetchFeed(true).then(() => setLoading(false));
-  }, [category, industrialType, engineKey]);
+    fetchFeed(true).then(() => {
+      if (!cancelled) setLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [category, industrialType, engineKey, marketCountry, prefsReady]);
 
   const handleRetry = async () => {
-    setLoading(true);
+    const isFirstPaint = items.length === 0;
+    if (isFirstPaint) setLoading(true);
     setError(false);
     setCursor(undefined);
     setHasNext(true);
@@ -633,8 +670,6 @@ export default function FeedScreen() {
 
   const handleCardPress = useCallback(
     (item: FeedItem) => {
-      // Guests are funneled into sign-up before any listing opens (Task #101).
-      if (!requireAuth()) return;
       sendBehaviorSignal({
         session_id: sessionId,
         listing_id: item.id,
@@ -642,7 +677,7 @@ export default function FeedScreen() {
       }).catch(() => {});
       router.push(`/listing/${item.id}`);
     },
-    [sessionId, requireAuth]
+    [sessionId],
   );
 
   const itemsRef = useRef<FeedItem[]>(items);
@@ -1165,19 +1200,21 @@ export default function FeedScreen() {
                 types={visibleIndTypes!}
                 selected={industrialType}
                 onChange={setIndustrialType}
+                accent={sectionAccent(category)}
               />
             ) : (
               <EngineChips
                 engines={engineList}
                 selected={engineKey}
                 onChange={setEngineKey}
+                accent={sectionAccent(category)}
               />
             )}
           </View>
         </Animated.View>
       ) : null}
 
-      {loading ? (
+      {!prefsReady || (loading && items.length === 0) ? (
         renderSkeletons()
       ) : error && items.length === 0 ? (
         renderError()
@@ -1220,10 +1257,12 @@ export default function FeedScreen() {
         animationType="fade"
         onRequestClose={() => setShowLogoMenu(false)}
       >
-        <Pressable
-          style={styles.menuBackdrop}
-          onPress={() => setShowLogoMenu(false)}
-        >
+        <View style={styles.menuBackdrop}>
+          <Pressable
+            style={StyleSheet.absoluteFillObject}
+            onPress={() => setShowLogoMenu(false)}
+            accessibilityRole="button"
+          />
           <View
             style={[
               styles.menuSheet,
@@ -1233,7 +1272,6 @@ export default function FeedScreen() {
                 paddingBottom: insets.bottom + 12,
               },
             ]}
-            onStartShouldSetResponder={() => true}
           >
             <View style={styles.menuHandle} />
             <View
@@ -1285,7 +1323,7 @@ export default function FeedScreen() {
               </Pressable>
             ))}
           </View>
-        </Pressable>
+        </View>
       </Modal>
 
       <Modal
@@ -1294,10 +1332,12 @@ export default function FeedScreen() {
         animationType="fade"
         onRequestClose={() => setShowSortMenu(false)}
       >
-        <Pressable
-          style={styles.sortBackdrop}
-          onPress={() => setShowSortMenu(false)}
-        >
+        <View style={styles.sortBackdrop}>
+          <Pressable
+            style={StyleSheet.absoluteFillObject}
+            onPress={() => setShowSortMenu(false)}
+            accessibilityRole="button"
+          />
           <View
             style={[
               styles.sortSheet,
@@ -1308,7 +1348,6 @@ export default function FeedScreen() {
                 [isRTL ? "left" : "right"]: 16,
               },
             ]}
-            onStartShouldSetResponder={() => true}
           >
             <AppText
               style={[
@@ -1353,7 +1392,7 @@ export default function FeedScreen() {
               </Pressable>
             ))}
           </View>
-        </Pressable>
+        </View>
       </Modal>
     </View>
   );

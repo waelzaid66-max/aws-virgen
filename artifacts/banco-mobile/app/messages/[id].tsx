@@ -1,4 +1,5 @@
 import { Feather } from "@/components/icons";
+import { useAuth } from "@clerk/expo";
 import {
   useGetMessages,
   sendMessage,
@@ -71,6 +72,7 @@ function timeLabel(iso: string, locale: string): string {
 export default function ThreadScreen() {
   const colors = useColors();
   const { t, isRTL, lang } = useI18n();
+  const { isSignedIn } = useAuth();
   const insets = useSafeAreaInsets();
   // Absolute bubble cap. A percentage maxWidth on a flex-row child inside a
   // FlatList doesn't resolve reliably on RN and collapses the bubble to the
@@ -110,7 +112,7 @@ export default function ThreadScreen() {
   const query = useGetMessages(conversationId, {
     query: {
       queryKey: getGetMessagesQueryKey(conversationId),
-      enabled: !!conversationId,
+      enabled: !!isSignedIn && !!conversationId,
       refetchInterval: 3000,
       refetchOnWindowFocus: true,
     },
@@ -157,12 +159,13 @@ export default function ThreadScreen() {
   }, []);
 
   useEffect(() => {
+    if (!isSignedIn) return;
     if (messages.length !== lastReadCountRef.current) {
       lastReadCountRef.current = messages.length;
       markRead();
       scrollToEnd(true);
     }
-  }, [messages.length, markRead, scrollToEnd]);
+  }, [messages.length, markRead, scrollToEnd, isSignedIn]);
 
   // Deliver one optimistic message: render it instantly, then call the API. On
   // success drop the placeholder (the server echo from refetch replaces it); on
@@ -373,8 +376,8 @@ export default function ThreadScreen() {
             backgroundColor: mine ? colors.primary : colors.card,
             borderColor: failed ? colors.destructive : colors.border,
             borderWidth: mine && !failed ? 0 : StyleSheet.hairlineWidth,
-            borderBottomRightRadius: mine ? 4 : 16,
-            borderBottomLeftRadius: mine ? 16 : 4,
+            borderBottomRightRadius: mine === isRTL ? 16 : 4,
+            borderBottomLeftRadius: mine === isRTL ? 4 : 16,
             opacity: inFlight ? 0.85 : 1,
           },
         ]}
@@ -383,8 +386,16 @@ export default function ThreadScreen() {
           <View
             style={[
               styles.quote,
+              isRTL
+                ? {
+                    borderRightWidth: 3,
+                    borderRightColor: mine ? colors.primaryForeground : colors.primary,
+                  }
+                : {
+                    borderLeftWidth: 3,
+                    borderLeftColor: mine ? colors.primaryForeground : colors.primary,
+                  },
               {
-                borderStartColor: mine ? colors.primaryForeground : colors.primary,
                 backgroundColor: mine ? "rgba(255,255,255,0.14)" : colors.background,
               },
             ]}
@@ -510,7 +521,15 @@ export default function ThreadScreen() {
         <View
           style={[
             styles.bubbleRow,
-            { justifyContent: mine ? "flex-end" : "flex-start" },
+            {
+              justifyContent: mine
+                ? isRTL
+                  ? "flex-start"
+                  : "flex-end"
+                : isRTL
+                  ? "flex-end"
+                  : "flex-start",
+            },
           ]}
         >
           {failed ? (
@@ -537,8 +556,13 @@ export default function ThreadScreen() {
             style={[
               styles.reactionRow,
               {
-                justifyContent: mine ? "flex-end" : "flex-start",
-                flexDirection: isRTL ? "row-reverse" : "row",
+                justifyContent: mine
+                  ? isRTL
+                    ? "flex-start"
+                    : "flex-end"
+                  : isRTL
+                    ? "flex-end"
+                    : "flex-start",
               },
             ]}
           >
@@ -586,6 +610,65 @@ export default function ThreadScreen() {
       </View>
     );
   };
+
+  if (!isSignedIn) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <View
+          style={[
+            styles.header,
+            {
+              paddingTop: (Platform.OS === "web" ? 12 : insets.top) + 8,
+              borderBottomColor: colors.border,
+              backgroundColor: colors.background,
+              flexDirection: isRTL ? "row-reverse" : "row",
+            },
+          ]}
+        >
+          <Pressable
+            onPress={() => router.back()}
+            style={styles.backBtn}
+            hitSlop={12}
+            testID="thread-back"
+          >
+            <Feather
+              name={isRTL ? "arrow-right" : "arrow-left"}
+              size={22}
+              color={colors.foreground}
+            />
+          </Pressable>
+          <AppText
+            style={[styles.headerTitle, { color: colors.foreground }]}
+            numberOfLines={1}
+          >
+            {params.name || t("messages.title")}
+          </AppText>
+          <View style={styles.backBtn} />
+        </View>
+        <View style={styles.guestEmpty}>
+          <Feather name="lock" size={56} color={colors.mutedForeground} />
+          <AppText style={[styles.guestEmptyTitle, { color: colors.foreground }]}>
+            {t("messages.signInTitle")}
+          </AppText>
+          <AppText style={[styles.guestEmptyText, { color: colors.mutedForeground }]}>
+            {t("messages.signInHint")}
+          </AppText>
+          <Pressable
+            onPress={() => router.replace("/(tabs)/profile")}
+            style={[
+              styles.guestSignInBtn,
+              { backgroundColor: colors.primary, borderRadius: colors.radius },
+            ]}
+            testID="thread-signin"
+          >
+            <AppText style={[styles.guestSignInText, { color: colors.primaryForeground }]}>
+              {t("messages.signInCta")}
+            </AppText>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -701,10 +784,12 @@ export default function ThreadScreen() {
           <View
             style={[
               styles.replyBar,
+              isRTL
+                ? { borderRightWidth: 3, borderRightColor: colors.primary }
+                : { borderLeftWidth: 3, borderLeftColor: colors.primary },
               {
                 backgroundColor: colors.card,
                 borderTopColor: colors.border,
-                borderStartColor: colors.primary,
                 flexDirection: isRTL ? "row-reverse" : "row",
               },
             ]}
@@ -813,9 +898,6 @@ export default function ThreadScreen() {
               color={
                 !draft.trim() ? colors.mutedForeground : colors.primaryForeground
               }
-              // The paper-plane points toward the send direction — mirror it in RTL
-              // so it flies left in Arabic, matching WhatsApp/Messenger.
-              style={{ transform: [{ scaleX: isRTL ? -1 : 1 }] }}
             />
           </Pressable>
         </View>
@@ -875,7 +957,6 @@ export default function ThreadScreen() {
                   name="send"
                   size={16}
                   color={colors.primaryForeground}
-                  style={{ transform: [{ scaleX: isRTL ? -1 : 1 }] }}
                 />
                 <AppText
                   style={[
@@ -1225,4 +1306,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   sheetActionText: { fontSize: 15, fontFamily: "Inter_500Medium" },
+  guestEmpty: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingBottom: 80,
+    paddingHorizontal: 40,
+  },
+  guestEmptyTitle: {
+    fontSize: 20,
+    fontFamily: "Inter_600SemiBold",
+    marginTop: 12,
+    textAlign: "center",
+  },
+  guestEmptyText: {
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
+    textAlign: "center",
+  },
+  guestSignInBtn: {
+    paddingHorizontal: 28,
+    paddingVertical: 13,
+    marginTop: 18,
+  },
+  guestSignInText: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
 });

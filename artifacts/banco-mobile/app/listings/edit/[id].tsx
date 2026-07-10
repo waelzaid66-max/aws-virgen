@@ -50,6 +50,7 @@ export default function EditListingScreen() {
   const listing = listingQ.data?.data;
   const specs = (listing?.specs ?? {}) as Record<string, unknown>;
   const isFurnishedDaily = specs.rental_term === "furnished_daily";
+  const isRequest = listing?.is_request === true;
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -90,7 +91,7 @@ export default function EditListingScreen() {
   const onSave = () => {
     if (!id || !title.trim()) return;
     const base_price_cash = digitsToNumber(price);
-    if (base_price_cash <= 0) {
+    if (!isRequest && base_price_cash <= 0) {
       Alert.alert(t("common.error"), t("editListing.priceRequired"));
       return;
     }
@@ -100,7 +101,7 @@ export default function EditListingScreen() {
         title: title.trim(),
         description: description.trim() || undefined,
         location: locationValue ?? location.trim(),
-        base_price_cash,
+        ...(isRequest ? {} : { base_price_cash }),
       },
     });
   };
@@ -215,10 +216,16 @@ export default function EditListingScreen() {
               onChangeText={setPrice}
               keyboardType="numeric"
               style={[styles.input, { color: colors.foreground, borderColor: colors.border, textAlign: isRTL ? "right" : "left" }]}
-              placeholder="0"
+              placeholder={isRequest ? t("editListing.requestNoPrice") : "0"}
               placeholderTextColor={colors.mutedForeground}
+              editable={!isRequest}
             />
           </Field>
+          {isRequest ? (
+            <AppText style={[styles.locked, { color: colors.mutedForeground, textAlign: isRTL ? "right" : "left" }]}>
+              {t("editListing.requestPriceLocked")}
+            </AppText>
+          ) : null}
         </KeyboardAwareScrollViewCompat>
       )}
 

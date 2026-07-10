@@ -480,6 +480,10 @@ components:
           description: >
             True when the seller opted this listing in to WhatsApp contact.
             Opt-in only (default false); clients gate the WhatsApp CTA on it.
+        is_request:
+          type: boolean
+          description: >
+            True when this is a buyer "request/wanted" post rather than a sale listing.
 
     DealerListing:
       type: object
@@ -2131,13 +2135,15 @@ components:
       type: object
       description: >
         One occupied grid cell on the map — its centroid and how many listings it
-        aggregates. listing_id is set ONLY when count is 1 (a single tappable pin);
-        for multi-listing cells it is null and the client shows a count bubble.
+        aggregates. listing_id / is_bookable / price_display are set ONLY when
+        count is 1 (a single tappable pin); for multi-listing cells they are null.
       required:
         - lat
         - lng
         - count
         - listing_id
+        - is_bookable
+        - price_display
       properties:
         lat:
           type: number
@@ -2148,6 +2154,16 @@ components:
         listing_id:
           type: string
           nullable: true
+        is_bookable:
+          type: boolean
+          nullable: true
+          description: >
+            True when the single pin is a furnished/daily real-estate rental
+            (same rule as FeedItem.is_bookable). Null for multi-listing cells.
+        price_display:
+          type: string
+          nullable: true
+          description: UI-ready price label for a single pin. Null for multi-listing cells.
 
     PriceHistoryPoint:
       type: object
@@ -3546,6 +3562,14 @@ paths:
           schema:
             type: string
         - in: query
+          name: market_country
+          description: >-
+            ISO 3166-1 alpha-2 market country (EG, SA, …). Filters inventory by
+            specs.market_country; listings without the key are treated as EG.
+          schema:
+            type: string
+            pattern: "^[A-Za-z]{2}$"
+        - in: query
           name: fuel_type
           description: Filter cars by fuel type (listing_attributes.fuel_type or specs).
           schema:
@@ -3591,6 +3615,14 @@ paths:
           schema:
             type: string
             enum: [local, imported]
+        - in: query
+          name: material
+          description: >-
+            Filter raw-material commodity listings by specs.material
+            (steel, aluminum, copper, …). Free string; catalog is client-side.
+          schema:
+            type: string
+            maxLength: 40
         - in: query
           name: session_id
           schema:
@@ -4399,6 +4431,14 @@ paths:
           schema:
             type: string
         - in: query
+          name: market_country
+          description: >-
+            ISO 3166-1 alpha-2 market country (EG, SA, …). Filters inventory by
+            specs.market_country; listings without the key are treated as EG.
+          schema:
+            type: string
+            pattern: "^[A-Za-z]{2}$"
+        - in: query
           name: fuel_type
           description: Filter cars by fuel type (listing_attributes.fuel_type or specs).
           schema:
@@ -4444,6 +4484,14 @@ paths:
           schema:
             type: string
             enum: [local, imported]
+        - in: query
+          name: material
+          description: >-
+            Filter raw-material commodity listings by specs.material
+            (steel, aluminum, copper, …). Free string; catalog is client-side.
+          schema:
+            type: string
+            maxLength: 40
         - in: query
           name: near_lat
           description: Near-me anchor latitude (requires near_lng and radius_km).
@@ -4583,6 +4631,10 @@ paths:
           description: Rental regime (furnished_daily / new_law / old_law / annual_contract).
           schema: { type: string }
         - in: query
+          name: market_country
+          description: ISO market country (EG, SA, …); missing specs coalesce to EG.
+          schema: { type: string, pattern: "^[A-Za-z]{2}$" }
+        - in: query
           name: fuel_type
           schema: { type: string, enum: [petrol, diesel, hybrid, electric, natural_gas] }
         - in: query
@@ -4606,6 +4658,10 @@ paths:
         - in: query
           name: origin_type
           schema: { type: string, enum: [local, imported] }
+        - in: query
+          name: material
+          description: Filter raw-material commodity listings by specs.material.
+          schema: { type: string, maxLength: 40 }
         - in: query
           name: near_lat
           description: Near-me anchor latitude (requires near_lng and radius_km).
@@ -4674,11 +4730,27 @@ paths:
     get:
       operationId: getAutocomplete
       summary: Autocomplete suggestions
+      description: >
+        Title suggestions scoped to the active browse company when category
+        (and optional industrial_type CSV) are provided. Without category,
+        suggestions span all public inventory.
       tags: [search]
       parameters:
         - in: query
           name: q
           required: true
+          schema:
+            type: string
+        - in: query
+          name: category
+          required: false
+          schema:
+            type: string
+            enum: [car, real_estate, industrial]
+        - in: query
+          name: industrial_type
+          required: false
+          description: Comma-separated industrial subtypes (facilities vs materials)
           schema:
             type: string
       responses:

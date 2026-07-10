@@ -28,8 +28,8 @@
 |----------|-------|---------|----------|
 | Typecheck (كل الحزم) | `pnpm run typecheck` | **PASS** | exit 0 — ~17.5 دقيقة على Windows؛ 7 مشاريع artifacts + libs + scripts |
 | ESLint (scripts) | `pnpm run lint` | **PASS** | exit 0 — ~10.5 دقيقة |
-| Mobile regression | `node --test` (icons + lib-hardening + resilience) | **PASS** | **23/23** اختبار |
-| Production confidence | `node scripts/production-confidence-check.mjs --skip-typecheck` | **PASS** | **10/10** (typecheck منفصل أعلاه) |
+| Mobile regression | `pnpm --filter @workspace/banco-mobile run test` | **PASS** | **34/34** (icons 6 + lib 21 + resilience 5 + universal-links 2) |
+| Production confidence | `pnpm run confidence` | **PASS** | **19/19** مع typecheck (أو **17/17** مع `--skip-typecheck`) |
 | Upload claims schema | `node scripts/verify-upload-claims-schema.mjs` | **PASS** | جدول `upload_claims` + أعمدة + فهارس |
 | Staging P0 smoke | `node scripts/staging-p0-smoke.mjs` | **BLOCKED** | exit **2** — `BANCO_API_URL` و `CLERK_BEARER_TOKEN` غير مضبوطين في الجلسة |
 | GitHub Actions (محلي) | `gh run list` | **BLOCKED** | `gh auth login` مطلوب على الجهاز |
@@ -43,7 +43,7 @@
 | `build` | typecheck + build (api-server, dealer-os, admin-os, landing) | typecheck **PASS** محلياً |
 | `test` | schema push + seed + vitest (~298 اختبار، 3 skipped تاريخياً) | **اعتماد على CI** |
 | `lint` | `pnpm run lint` | **PASS** |
-| `mobile-regression` | icons + lib + resilience | **PASS** (23) |
+| `mobile-regression` | icons + lib + resilience + universal-links | **PASS** (34) |
 
 **إجراء مطلوب:** افتح [Actions](https://github.com/waelzaid66-max/-BANCO-CA-OOM-/actions) على commit `a20d6fc` أو نفّذ `gh auth login` ثم `gh run list --limit 5`.
 
@@ -169,7 +169,7 @@ npx eas-cli build --profile preview --platform all
 
 | الدور | الحكم |
 |-------|-------|
-| هندسة — بوابات محلية | **PASS** (typecheck, lint, 23 mobile, confidence 10/10) |
+| هندسة — بوابات محلية | **PASS** (typecheck, lint, 34 mobile, confidence 18/18) |
 | هندسة — API integration | **معلّق على CI** |
 | منتج/عمليات — نشر إعلان staging | **مطلوب بشرياً** |
 | إطلاق متجر عام | **NO-GO** حتى اكتمال §8 |

@@ -1,4 +1,5 @@
 import logoUrl from "@/assets/banco-logo.png";
+import { bancoBrand } from "@workspace/design-tokens";
 
 /**
  * BANCO — the official entry page. Replaces the old placeholder (logo + a
@@ -15,8 +16,17 @@ import logoUrl from "@/assets/banco-logo.png";
 const ENV = import.meta.env as Record<string, string | undefined>;
 const MARKET_URL = ENV.VITE_MARKET_URL ?? "";
 const ADMIN_URL = ENV.VITE_ADMIN_URL ?? "";
+const WEB_URL = ENV.VITE_WEB_URL ?? "";
 const ANDROID_URL = ENV.VITE_APP_ANDROID_URL ?? "";
 const IOS_URL = ENV.VITE_APP_IOS_URL ?? "";
+
+const WEB_PAGES: Dest[] = [
+  { ar: "الرئيسية", en: "Home", path: "/" },
+  { ar: "بحث", en: "Search", path: "/search" },
+  { ar: "سيارات", en: "Cars", path: "/cars" },
+  { ar: "عقارات", en: "Real Estate", path: "/real-estate" },
+  { ar: "صناعي", en: "Industrial", path: "/industrial" },
+];
 
 type Dest = { ar: string; en: string; path: string };
 
@@ -73,8 +83,32 @@ function App() {
       </header>
 
       <main style={S.grid}>
+        {/* موقع التصفح (banco-web) */}
+        <section style={{ ...S.card, borderTopColor: bancoBrand.red }}>
+          <h2 style={S.cardTitle}>🌐 تصفّح السوق</h2>
+          <p style={S.cardBody}>موقع المستهلك — بحث وإعلانات ومراكز SEO:</p>
+          <ul style={S.list}>
+            {WEB_PAGES.map((p) => (
+              <li key={p.path} style={S.li}>
+                {WEB_URL ? (
+                  <a href={WEB_URL + p.path} style={S.pageLink}>
+                    {p.ar} <span style={S.pathMono}>{p.path}</span>
+                  </a>
+                ) : (
+                  <>
+                    {p.ar} <span style={S.pathMono}>{p.path}</span>
+                  </>
+                )}
+              </li>
+            ))}
+          </ul>
+          <div style={S.ctaRow}>
+            <LinkOrSoon url={WEB_URL} label="افتح موقع التصفح" />
+          </div>
+        </section>
+
         {/* التطبيق */}
-        <section style={{ ...S.card, borderTopColor: "#E8002D" }}>
+        <section style={{ ...S.card, borderTopColor: bancoBrand.red }}>
           <h2 style={S.cardTitle}>📱 تطبيق بانكو</h2>
           <p style={S.cardBody}>التجربة الكاملة — كل الأقسام والخدمات:</p>
           <ul style={S.list}>
@@ -187,7 +221,7 @@ const S: Record<string, React.CSSProperties> = {
   pathMono: { color: "#7a7a7a", fontFamily: "ui-monospace, Menlo, monospace", fontSize: 12, marginInlineStart: 6 },
   ctaRow: { display: "flex", gap: 10, marginTop: "auto", paddingTop: 12, flexWrap: "wrap" },
   cta: {
-    backgroundColor: "#E8002D",
+    backgroundColor: bancoBrand.red,
     color: "#fff",
     fontWeight: 700,
     fontSize: 14.5,

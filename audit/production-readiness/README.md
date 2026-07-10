@@ -1,7 +1,8 @@
 # Production Readiness — BANCO Store
 
 **Purpose:** 21-phase verification program for cloud launch readiness (no production deploy from this track).  
-**Last updated:** 2026-07-08 (phases 02–20 closed by inspection)  
+**Last updated:** 2026-07-10 (architecture index + confidence gate + mobile isolation wave)  
+**Architecture index:** [`../ARCHITECTURE-FILE-INDEX.md`](../ARCHITECTURE-FILE-INDEX.md)  
 **Master maintenance plan:** [`audit/maintenance/MASTER-MAINTENANCE-READINESS-PLAN.md`](../maintenance/MASTER-MAINTENANCE-READINESS-PLAN.md)  
 ** أين وصلنا:** [`FULL-READINESS-STATUS-PLAN.md`](./FULL-READINESS-STATUS-PLAN.md)  
 **Open items:** [`OPEN-ITEMS-BACKLOG.md`](./OPEN-ITEMS-BACKLOG.md)  
@@ -47,3 +48,5 @@ See **[SEVEN-LAUNCH-PILLARS.md](./SEVEN-LAUNCH-PILLARS.md)**.
 
 `node scripts/production-confidence-check.mjs`  
 or `pnpm run confidence`
+
+Includes: repo layout, EAS/Expo, OpenAPI, GCP docker config, mobile tests (34), search-contract (33), `proof-isolation`, `proof-create-fields`. Optional: full typecheck (omit with `--skip-typecheck`).

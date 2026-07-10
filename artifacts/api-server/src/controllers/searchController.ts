@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import { z } from "zod";
 import { parseSearchQuery, searchListings, getAutocomplete, getTrending, getRecommendations, getFacets, mapClusters } from "../services/SearchService";
+import { sanitizeParsedSearchQuery } from "../services/sanitizeParsedSearchQuery";
 import { SearchQuerySchema, FacetsQuerySchema, FacetCountsSchema, FeedItemSchema, successResponse, errorResponse, validateResponse, MapClustersQuerySchema, MapClusterSchema } from "../validators/schemas";
 import { ZodError } from "zod";
 
@@ -31,6 +32,7 @@ function parsedFromSearchQuery(query: z.infer<typeof SearchQuerySchema>) {
   if (query.furnished !== undefined) parsed.furnished = query.furnished;
   if (query.offer_type) parsed.offer_type = query.offer_type;
   if (query.rental_term) parsed.rental_term = query.rental_term;
+  if (query.market_country) parsed.market_country = query.market_country;
   if (query.fuel_type) parsed.fuel_type = query.fuel_type;
   if (query.transmission) parsed.transmission = query.transmission;
   if (query.brand) parsed.brand = query.brand;
@@ -39,10 +41,11 @@ function parsedFromSearchQuery(query: z.infer<typeof SearchQuerySchema>) {
   if (query.max_year !== undefined) parsed.max_year = query.max_year;
   if (query.industry) parsed.industry = query.industry;
   if (query.origin_type) parsed.origin_type = query.origin_type;
+  if (query.material) parsed.material = query.material;
   if (query.is_request !== undefined) parsed.is_request = query.is_request;
   // sort always has a value (schema default "recommended").
   parsed.sort = query.sort;
-  return parsed;
+  return sanitizeParsedSearchQuery(parsed);
 }
 
 export async function searchHandler(req: Request, res: Response) {
@@ -98,7 +101,19 @@ export async function autocompleteHandler(req: Request, res: Response) {
       const validated = validateResponse(z.string().array(), []);
       return res.json(successResponse(validated, { total: 0 }));
     }
-    const suggestions = await getAutocomplete(q);
+    const rawCat = String(req.query.category ?? "").trim();
+    const category =
+      rawCat === "car" || rawCat === "real_estate" || rawCat === "industrial"
+        ? rawCat
+        : undefined;
+    const industrial_type = String(req.query.industrial_type ?? "")
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const suggestions = await getAutocomplete(q, {
+      category,
+      industrial_type: industrial_type.length ? industrial_type : undefined,
+    });
     const validated = validateResponse(z.string().array(), suggestions);
     return res.json(successResponse(validated, { total: validated.length }));
   } catch (err) {

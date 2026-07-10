@@ -219,12 +219,10 @@ export default function ListingDetailScreen() {
   }, [id, sessionId, recordView]);
 
   useEffect(() => {
-    // Wait for Clerk to resolve, then skip the fetch for guests — they see the
-    // locked screen below instead of any listing detail (no transient fetch).
+    // Wait for Clerk to resolve; listing detail is public (optionalAuth API).
     if (!isLoaded) return;
-    if (!isSignedIn) return;
     loadListing();
-  }, [loadListing, isLoaded, isSignedIn]);
+  }, [loadListing, isLoaded]);
 
   // Per-service arrival cue: a category-specific sound the first time a listing
   // resolves (vehicle = engine, property = key/latch, otherwise a light tap).
@@ -480,88 +478,6 @@ export default function ListingDetailScreen() {
   };
 
   const bottomBarHeight = 80 + (Platform.OS === "web" ? 34 : insets.bottom);
-
-  if (isLoaded && !isSignedIn) {
-    return (
-      <View
-        style={[
-          styles.centered,
-          { backgroundColor: colors.background, padding: 28 },
-        ]}
-      >
-        <Pressable
-          onPress={() =>
-            router.canGoBack() ? router.back() : router.replace("/(tabs)")
-          }
-          hitSlop={12}
-          style={{
-            position: "absolute",
-            top: insets.top + 8,
-            ...(isRTL ? { right: 16 } : { left: 16 }),
-            zIndex: 10,
-            padding: 8,
-          }}
-          testID="listing-guest-back"
-        >
-          <Feather
-            name={isRTL ? "arrow-right" : "arrow-left"}
-            size={24}
-            color={colors.foreground}
-          />
-        </Pressable>
-        <View
-          style={{
-            width: 72,
-            height: 72,
-            borderRadius: 36,
-            alignItems: "center",
-            justifyContent: "center",
-            marginBottom: 18,
-            backgroundColor: colors.primary + "1A",
-          }}
-        >
-          <Feather name="lock" size={32} color={colors.primary} />
-        </View>
-        <AppText
-          style={{
-            fontSize: 22,
-            fontFamily: "Inter_700Bold",
-            color: colors.foreground,
-            textAlign: "center",
-          }}
-        >
-          {t("authGate.title")}
-        </AppText>
-        <AppText
-          style={{
-            fontSize: 15,
-            lineHeight: 22,
-            fontFamily: "Inter_400Regular",
-            color: colors.mutedForeground,
-            textAlign: "center",
-            marginTop: 10,
-            marginBottom: 24,
-          }}
-        >
-          {t("authGate.message")}
-        </AppText>
-        <Pressable
-          onPress={() => router.replace("/(tabs)/profile")}
-          style={[
-            styles.retryBtn,
-            { backgroundColor: colors.primary, borderRadius: colors.radius },
-          ]}
-          testID="listing-guest-signin"
-        >
-          <AppText
-            style={[styles.retryText, { color: colors.primaryForeground }]}
-          >
-            {t("authGate.cta")}
-          </AppText>
-        </Pressable>
-      </View>
-    );
-  }
 
   if (loading) {
     return (
@@ -1745,13 +1661,15 @@ export default function ListingDetailScreen() {
         animationType="fade"
         onRequestClose={closeReport}
       >
-        <Pressable
-          style={styles.modalOverlay}
-          onPress={() => {
-            if (reportState !== "submitting") closeReport();
-          }}
-        >
+        <View style={styles.modalOverlay}>
           <Pressable
+            style={StyleSheet.absoluteFillObject}
+            onPress={() => {
+              if (reportState !== "submitting") closeReport();
+            }}
+            accessibilityRole="button"
+          />
+          <View
             style={[
               styles.reportSheet,
               {
@@ -1760,7 +1678,6 @@ export default function ListingDetailScreen() {
                 paddingBottom: (Platform.OS === "web" ? 24 : insets.bottom) + 16,
               },
             ]}
-            onPress={(e) => e.stopPropagation()}
           >
             {reportState === "submitting" ? (
               <View style={styles.reportResult}>
@@ -1933,8 +1850,8 @@ export default function ListingDetailScreen() {
                 </Pressable>
               </>
             )}
-          </Pressable>
-        </Pressable>
+          </View>
+        </View>
       </Modal>
 
       <Modal
@@ -1947,8 +1864,13 @@ export default function ListingDetailScreen() {
           behavior={Platform.OS === "ios" ? "padding" : undefined}
           style={styles.flex}
         >
-          <Pressable style={styles.modalOverlay} onPress={closeRfq}>
+          <View style={styles.modalOverlay}>
             <Pressable
+              style={StyleSheet.absoluteFillObject}
+              onPress={closeRfq}
+              accessibilityRole="button"
+            />
+            <View
               style={[
                 styles.reportSheet,
                 {
@@ -1958,7 +1880,6 @@ export default function ListingDetailScreen() {
                     (Platform.OS === "web" ? 24 : insets.bottom) + 16,
                 },
               ]}
-              onPress={(e) => e.stopPropagation()}
             >
               {rfqState === "submitting" ? (
                 <View style={styles.reportResult}>
@@ -2286,8 +2207,8 @@ export default function ListingDetailScreen() {
                   </Pressable>
                 </>
               )}
-            </Pressable>
-          </Pressable>
+            </View>
+          </View>
         </KeyboardAvoidingView>
       </Modal>
 
@@ -2297,8 +2218,13 @@ export default function ListingDetailScreen() {
         animationType="slide"
         onRequestClose={closeApply}
       >
-        <Pressable style={styles.modalOverlay} onPress={closeApply}>
+        <View style={styles.modalOverlay}>
           <Pressable
+            style={StyleSheet.absoluteFillObject}
+            onPress={closeApply}
+            accessibilityRole="button"
+          />
+          <View
             style={[
               styles.reportSheet,
               {
@@ -2307,7 +2233,6 @@ export default function ListingDetailScreen() {
                 paddingBottom: (Platform.OS === "web" ? 24 : insets.bottom) + 16,
               },
             ]}
-            onPress={(e) => e.stopPropagation()}
           >
             {applyState === "submitting" ? (
               <View style={styles.reportResult}>
@@ -2645,8 +2570,8 @@ export default function ListingDetailScreen() {
                 </Pressable>
               </>
             )}
-          </Pressable>
-        </Pressable>
+          </View>
+        </View>
       </Modal>
     </View>
   );

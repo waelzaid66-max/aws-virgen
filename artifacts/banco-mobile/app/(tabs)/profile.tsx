@@ -40,14 +40,22 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { useQueryClient } from "@tanstack/react-query";
+
 import { AppText } from "@/components/AppText";
 import { BancoLogo } from "@/components/BancoLogo";
+import { CountryCodePicker } from "@/components/CountryCodePicker";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { PermissionRationaleModal } from "@/components/PermissionRationaleModal";
 import { PromoteButton } from "@/components/PromoteButton";
+import {
+  countryByIso,
+  isValidNationalNumber,
+  parsePhone,
+  toE164,
+} from "@/constants/countryCodes";
 import { useI18n } from "@/context/LanguageContext";
 import { useSession } from "@/context/SessionContext";
-import { filterBookableListings } from "@/lib/rentalHost";
 import { useColors } from "@/hooks/useColors";
 import { buildAvatarDataUri, uploadMediaAsset } from "@/lib/upload";
 
@@ -140,7 +148,10 @@ export default function ProfileScreen() {
   const [showPhotoRationale, setShowPhotoRationale] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
-  const [phone, setPhone] = useState("");
+  const [signupPhoneIso, setSignupPhoneIso] = useState("EG");
+  const [signupPhoneNumber, setSignupPhoneNumber] = useState("");
+  const [showSignupPhoneCountryPicker, setShowSignupPhoneCountryPicker] =
+    useState(false);
   const [accountType, setAccountType] = useState<"personal" | "business">(
     "personal"
   );
@@ -198,6 +209,10 @@ export default function ProfileScreen() {
   const [displayTitleDraft, setDisplayTitleDraft] = useState("");
   const [categoryLabelDraft, setCategoryLabelDraft] = useState("");
   const [bioDraft, setBioDraft] = useState("");
+  const [phoneIsoDraft, setPhoneIsoDraft] = useState("EG");
+  const [phoneNumberDraft, setPhoneNumberDraft] = useState("");
+  const [showPhoneCountryPicker, setShowPhoneCountryPicker] = useState(false);
+  const queryClient = useQueryClient();
 
   const isSigningIn = signInStatus === "fetching";
   const isSigningUp = signUpStatus === "fetching";
@@ -383,12 +398,24 @@ export default function ProfileScreen() {
       typeof meta.categoryLabel === "string" ? meta.categoryLabel : "",
     );
     setBioDraft(typeof meta.bio === "string" ? meta.bio : "");
+    const parsed = parsePhone(meQuery.data?.data?.phone);
+    setPhoneIsoDraft(parsed.iso);
+    setPhoneNumberDraft(parsed.number);
     setShowEditProfile(true);
   };
 
   const saveProfile = async () => {
     if (savingProfile) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const country = countryByIso(phoneIsoDraft);
+    const national = phoneNumberDraft.trim();
+    if (national && !isValidNationalNumber(national, country)) {
+      Alert.alert(
+        t("profile.editProfileError"),
+        t("create.phoneFormatHint", { sample: country.sample }),
+      );
+      return;
+    }
     setSavingProfile(true);
     try {
       await user?.update({
@@ -399,7 +426,12 @@ export default function ProfileScreen() {
           bio: bioDraft.trim(),
         },
       });
+      // Phone lives on Banco /me (not Clerk metadata). Empty clears the field.
+      await updateMe({
+        phone: national ? toE164(national, country) : null,
+      });
       await user?.reload();
+      await queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setShowEditProfile(false);
     } catch {
@@ -458,7 +490,9 @@ export default function ProfileScreen() {
     if (!firstName.trim() || !lastName.trim()) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     consentPendingRef.current = true;
-    pendingPhoneRef.current = phone.trim();
+    pendingPhoneRef.current = signupPhoneNumber.trim()
+      ? toE164(signupPhoneNumber.trim(), countryByIso(signupPhoneIso))
+      : "";
     pendingBusinessRef.current = accountType === "business";
     pendingFirstNameRef.current = firstName.trim();
     pendingLastNameRef.current = lastName.trim();
@@ -582,7 +616,8 @@ export default function ProfileScreen() {
     setShowPassword(false);
     setShowNewPassword(false);
     setAgreedToTerms(false);
-    setPhone("");
+    setSignupPhoneIso("EG");
+    setSignupPhoneNumber("");
     setAccountType("personal");
     // Abandon any in-flight signup intent so a returning sign-in never
     // inherits a previous draft's consent, phone, name, or business routing.
@@ -834,8 +869,8 @@ export default function ProfileScreen() {
       });
     }
     const posts = listingsQuery.data?.data ?? [];
-    const hasBookableRentals = filterBookableListings(posts).length > 0;
-    const showRentalHub = hasBookableRentals || isBusiness;
+    // Host hub is a first-class journey — never hide behind bookable inventory.
+    const showRentalHub = true;
 
     const menuItems: {
       key: string;
@@ -863,6 +898,24 @@ export default function ProfileScreen() {
         onPress: () => {
           setShowMenu(false);
           router.push("/listings/mine");
+        },
+      },
+      {
+        key: "business",
+        icon: "briefcase",
+        label: t("profile.menuBusiness"),
+        onPress: () => {
+          setShowMenu(false);
+          router.push("/business/supply-hub" as Href);
+        },
+      },
+      {
+        key: "industry",
+        icon: "tool",
+        label: t("profile.menuIndustry"),
+        onPress: () => {
+          setShowMenu(false);
+          router.push("/industry" as Href);
         },
       },
       ...(showRentalHub
@@ -1156,6 +1209,28 @@ export default function ProfileScreen() {
           {/* numberOfLines above: 3 lines reads like Instagram without pushing
               the trust row off-screen; tap opens the editor either way. */}
 
+          {meQuery.data?.data?.phone?.trim() ? (
+            <Pressable onPress={openEditProfile} testID="profile-phone">
+              <AppText
+                style={[
+                  styles.profilePhone,
+                  {
+                    color: colors.mutedForeground,
+                    textAlign: isRTL ? "right" : "left",
+                  },
+                ]}
+              >
+                {(() => {
+                  const parsed = parsePhone(meQuery.data?.data?.phone);
+                  const country = countryByIso(parsed.iso);
+                  return parsed.number
+                    ? `+${country.dial} ${parsed.number}`
+                    : meQuery.data?.data?.phone;
+                })()}
+              </AppText>
+            </Pressable>
+          ) : null}
+
           {meQuery.data?.data?.account_number && (
             <AppText
               style={[
@@ -1301,6 +1376,24 @@ export default function ProfileScreen() {
         </View>
 
         {/* Server-backed social links + edit */}
+        <View style={styles.socialSection}>
+          <View
+            style={[
+              styles.socialHeader,
+              { flexDirection: isRTL ? "row-reverse" : "row" },
+            ]}
+          >
+            <AppText style={[styles.socialTitle, { color: colors.foreground }]}>
+              {t("profile.socialLinks")}
+            </AppText>
+            {social.length === 0 ? (
+              <AppText
+                style={[styles.socialHint, { color: colors.mutedForeground }]}
+              >
+                {t("profile.addSocial")}
+              </AppText>
+            ) : null}
+          </View>
         <View
           style={[
             styles.socialRow,
@@ -1342,6 +1435,7 @@ export default function ProfileScreen() {
           >
             <Feather name="edit-2" size={15} color={colors.primary} />
           </Pressable>
+        </View>
         </View>
 
         {/* Instagram-style content tabs → REAL screens */}
@@ -1994,6 +2088,90 @@ export default function ProfileScreen() {
                 </AppText>
               </View>
 
+              <View style={styles.editField}>
+                <AppText
+                  style={[
+                    styles.editLabel,
+                    {
+                      color: colors.foreground,
+                      textAlign: isRTL ? "right" : "left",
+                    },
+                  ]}
+                >
+                  {t("profile.phoneLabel")}
+                </AppText>
+                <View
+                  style={[
+                    styles.editPhoneRow,
+                    { flexDirection: isRTL ? "row-reverse" : "row" },
+                  ]}
+                >
+                  <Pressable
+                    onPress={() => {
+                      Haptics.selectionAsync();
+                      setShowPhoneCountryPicker(true);
+                    }}
+                    style={[
+                      styles.editDialBtn,
+                      {
+                        borderColor: colors.border,
+                        borderRadius: colors.radius,
+                        backgroundColor: colors.secondary,
+                        flexDirection: isRTL ? "row-reverse" : "row",
+                      },
+                    ]}
+                    testID="edit-phone-country"
+                  >
+                    <AppText style={styles.editDialFlag}>
+                      {countryByIso(phoneIsoDraft).flag}
+                    </AppText>
+                    <AppText
+                      style={[styles.editDialCode, { color: colors.foreground }]}
+                    >
+                      +{countryByIso(phoneIsoDraft).dial}
+                    </AppText>
+                    <Feather
+                      name="chevron-down"
+                      size={16}
+                      color={colors.mutedForeground}
+                    />
+                  </Pressable>
+                  <TextInput
+                    value={phoneNumberDraft}
+                    onChangeText={setPhoneNumberDraft}
+                    placeholder={countryByIso(phoneIsoDraft).sample}
+                    placeholderTextColor={colors.mutedForeground}
+                    keyboardType="phone-pad"
+                    autoCorrect={false}
+                    style={[
+                      styles.editInput,
+                      styles.editPhoneInput,
+                      {
+                        color: colors.foreground,
+                        backgroundColor: colors.secondary,
+                        borderColor: colors.border,
+                        borderRadius: colors.radius,
+                        textAlign: isRTL ? "right" : "left",
+                      },
+                    ]}
+                    testID="edit-phone-number"
+                  />
+                </View>
+                <AppText
+                  style={[
+                    styles.editCounter,
+                    {
+                      color: colors.mutedForeground,
+                      textAlign: isRTL ? "right" : "left",
+                    },
+                  ]}
+                >
+                  {t("create.phoneFormatHint", {
+                    sample: countryByIso(phoneIsoDraft).sample,
+                  })}
+                </AppText>
+              </View>
+
               <Pressable
                 onPress={saveProfile}
                 disabled={savingProfile}
@@ -2039,6 +2217,25 @@ export default function ProfileScreen() {
           </View>
         </Modal>
 
+        <CountryCodePicker
+          visible={showPhoneCountryPicker}
+          selectedIso={phoneIsoDraft}
+          onClose={() => setShowPhoneCountryPicker(false)}
+          onSelect={(iso) => {
+            setPhoneIsoDraft(iso);
+            setShowPhoneCountryPicker(false);
+          }}
+        />
+        <CountryCodePicker
+          visible={showSignupPhoneCountryPicker}
+          selectedIso={signupPhoneIso}
+          onClose={() => setShowSignupPhoneCountryPicker(false)}
+          onSelect={(iso) => {
+            setSignupPhoneIso(iso);
+            setShowSignupPhoneCountryPicker(false);
+          }}
+        />
+
         {/* Overflow menu → existing routes only */}
         <Modal
           visible={showMenu}
@@ -2046,16 +2243,17 @@ export default function ProfileScreen() {
           animationType="slide"
           onRequestClose={() => setShowMenu(false)}
         >
-          <Pressable
-            style={styles.menuBackdrop}
-            onPress={() => setShowMenu(false)}
-          >
+          <View style={styles.menuBackdrop}>
+            <Pressable
+              style={StyleSheet.absoluteFillObject}
+              onPress={() => setShowMenu(false)}
+              accessibilityRole="button"
+            />
             <View
               style={[
                 styles.menuSheet,
                 { backgroundColor: colors.card, borderColor: colors.border },
               ]}
-              onStartShouldSetResponder={() => true}
             >
               <View
                 style={[styles.menuHandle, { backgroundColor: colors.border }]}
@@ -2074,7 +2272,11 @@ export default function ProfileScreen() {
               {menuItems.map((mi) => (
                 <Pressable
                   key={mi.key}
-                  onPress={mi.onPress}
+                  onPress={() => {
+                    Haptics.selectionAsync();
+                    setShowMenu(false);
+                    mi.onPress();
+                  }}
                   style={[styles.menuItem, isRTL && styles.rowReverse]}
                   testID={`menu-${mi.key}`}
                 >
@@ -2104,7 +2306,7 @@ export default function ProfileScreen() {
                 </Pressable>
               ))}
             </View>
-          </Pressable>
+          </View>
         </Modal>
       </ScrollView>
     );
@@ -2527,16 +2729,74 @@ export default function ProfileScreen() {
 
       {mode === "signup" && (
         <View style={styles.field}>
-          <TextInput
-            value={phone}
-            onChangeText={setPhone}
-            placeholder={t("profile.phonePlaceholder")}
-            placeholderTextColor={colors.mutedForeground}
-            style={[inputStyle, { textAlign: isRTL ? "right" : "left" }]}
-            keyboardType="phone-pad"
-            autoCorrect={false}
-            testID="phone-input"
-          />
+          <AppText
+            style={[
+              styles.accountTypeLabel,
+              {
+                color: colors.mutedForeground,
+                textAlign: isRTL ? "right" : "left",
+              },
+            ]}
+          >
+            {t("profile.phoneLabel")}
+          </AppText>
+          <View
+            style={[
+              styles.editPhoneRow,
+              { flexDirection: isRTL ? "row-reverse" : "row" },
+            ]}
+          >
+            <Pressable
+              onPress={() => {
+                Haptics.selectionAsync();
+                setShowSignupPhoneCountryPicker(true);
+              }}
+              style={[
+                styles.editDialBtn,
+                {
+                  borderColor: colors.border,
+                  borderRadius: colors.radius,
+                  backgroundColor: colors.secondary,
+                  flexDirection: isRTL ? "row-reverse" : "row",
+                },
+              ]}
+              testID="signup-phone-country"
+            >
+              <AppText style={styles.editDialFlag}>
+                {countryByIso(signupPhoneIso).flag}
+              </AppText>
+              <AppText
+                style={[styles.editDialCode, { color: colors.foreground }]}
+              >
+                +{countryByIso(signupPhoneIso).dial}
+              </AppText>
+              <Feather
+                name="chevron-down"
+                size={16}
+                color={colors.mutedForeground}
+              />
+            </Pressable>
+            <TextInput
+              value={signupPhoneNumber}
+              onChangeText={setSignupPhoneNumber}
+              placeholder={countryByIso(signupPhoneIso).sample}
+              placeholderTextColor={colors.mutedForeground}
+              keyboardType="phone-pad"
+              autoCorrect={false}
+              style={[
+                styles.editInput,
+                styles.editPhoneInput,
+                {
+                  color: colors.foreground,
+                  backgroundColor: colors.secondary,
+                  borderColor: colors.border,
+                  borderRadius: colors.radius,
+                  textAlign: isRTL ? "right" : "left",
+                },
+              ]}
+              testID="phone-input"
+            />
+          </View>
         </View>
       )}
 
@@ -3156,9 +3416,32 @@ const styles = StyleSheet.create({
     marginTop: 4,
     letterSpacing: 0.5,
   },
+  profilePhone: {
+    fontSize: 14,
+    fontFamily: "Inter_500Medium",
+    marginTop: 8,
+  },
+  socialSection: {
+    marginBottom: 16,
+    gap: 8,
+  },
+  socialHeader: {
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  socialTitle: {
+    fontSize: 14,
+    fontFamily: "Inter_600SemiBold",
+  },
+  socialHint: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    flex: 1,
+    textAlign: "right",
+  },
   socialRow: {
     gap: 10,
-    marginBottom: 16,
   },
   socialBtn: {
     width: 42,
@@ -3665,6 +3948,27 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontFamily: "Inter_400Regular",
     marginTop: 4,
+  },
+  editPhoneRow: {
+    alignItems: "center",
+    gap: 8,
+  },
+  editDialBtn: {
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    alignItems: "center",
+    gap: 4,
+  },
+  editDialFlag: {
+    fontSize: 16,
+  },
+  editDialCode: {
+    fontSize: 14,
+    fontFamily: "Inter_600SemiBold",
+  },
+  editPhoneInput: {
+    flex: 1,
   },
 
   // Overflow menu

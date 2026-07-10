@@ -14,6 +14,16 @@
 | `CLERK_BEARER_TOKEN` | **Yes** for authenticated upload path | Primary user JWT |
 | `CLERK_BEARER_TOKEN_OTHER` | Optional | Second user JWT (IDOR / claim isolation) |
 
+### How to obtain `CLERK_BEARER_TOKEN` (operator)
+
+1. Open the **preview/staging** mobile app or web client signed in as your test user.  
+2. Trigger any authenticated API call (`/v1/...`).  
+3. Copy the `Authorization: Bearer <token>` value from browser DevTools or a proxy (Charles/mitmproxy).  
+4. Paste into `.secrets/local.env` as `CLERK_BEARER_TOKEN=...` (token expires — refresh before full smoke).  
+5. Template: `scripts/local.env.example` → copy to `.secrets/local.env`.
+
+Health-only smoke (steps 1–2) runs **without** the JWT when `BANCO_API_URL` is set.
+
 ---
 
 ## B. Database schema verify (`verify-upload-claims-schema.mjs`)
