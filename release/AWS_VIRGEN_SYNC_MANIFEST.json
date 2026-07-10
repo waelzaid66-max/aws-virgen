@@ -1,13 +1,13 @@
 {
   "schema": "banco-aws-virgen-sync/1",
-  "generatedAt": "2026-07-10T14:53:56.302Z",
-  "releaseTag": "v1.1.1-product-truth-2026-07-10",
+  "generatedAt": "2026-07-10T15:34:48.366Z",
+  "releaseTag": "v1.1.2-contact-gate-2026-07-10",
   "primaryRepository": "waelzaid66-max/-BANCO-CA-OOM-",
   "awsVirgenRepository": "waelzaid66-max/aws-virgen",
   "commit": {
-    "full": "4aac60cc095a25ff8f8cf48e108b1c3d5419c261",
-    "short": "4aac60c",
-    "subject": "docs(release): wave 6 gates FRESH + product truth reports @ 1aecea5"
+    "full": "c8fd79c5890d498de33cb8b93d1d57cf51ced699",
+    "short": "c8fd79c",
+    "subject": "fix(mobile): gate listing contact for guests, owner CTAs, wizard validation"
   },
   "syncPolicy": "merge primary main into aws-virgen main (full tree, history preserved)",
   "ci": {
