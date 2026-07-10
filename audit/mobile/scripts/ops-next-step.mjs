@@ -7,21 +7,27 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { tryLoadLocalSecrets } from "../../../scripts/load-local-secrets.mjs";
+
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
-const base = process.argv[2] || "https://banco-ca-oom.replit.app";
+const base = process.argv[2] || process.env.BANCO_API_URL || process.env.API_URL || "https://banco-ca-oom.replit.app";
 const probe = path.join(root, "audit/mobile/scripts/probe-live-deploy.mjs");
 const codeGate = path.join(root, "audit/mobile/scripts/pre-redeploy-code-gate.mjs");
 
+tryLoadLocalSecrets();
+
 const hasSmokeSecrets = Boolean(
   process.env.BANCO_API_URL || process.env.API_URL,
-) && Boolean(process.env.CLERK_BEARER_TOKEN);
+) && Boolean(process.env.CLERK_BEARER_TOKEN || process.env.BEARER_TOKEN);
 const hasDb = Boolean(process.env.DATABASE_URL);
+const hasExpo = Boolean(process.env.EXPO_TOKEN);
 
 console.log("=== BANCO mobile publish — next step ===\n");
 console.log(`Repo root: ${root}`);
 console.log(`Probe host: ${base}`);
-console.log(`Smoke secrets: ${hasSmokeSecrets ? "present" : "missing"}`);
+console.log(`Smoke secrets: ${hasSmokeSecrets ? "present" : "missing (need CLERK_BEARER_TOKEN)"}`);
 console.log(`DATABASE_URL: ${hasDb ? "present" : "missing"}`);
+console.log(`EXPO_TOKEN: ${hasExpo ? "present" : "missing"}`);
 console.log("");
 
 if (!existsSync(probe)) {

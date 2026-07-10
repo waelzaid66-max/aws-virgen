@@ -15,7 +15,8 @@
     "confidence": "node scripts/production-confidence-check.mjs",
     "ops:next": "node audit/mobile/scripts/ops-next-step.mjs",
     "ops:code-gate": "node audit/mobile/scripts/pre-redeploy-code-gate.mjs",
-    "ops:post-redeploy": "node audit/mobile/scripts/post-redeploy-verify.mjs"
+    "ops:post-redeploy": "node audit/mobile/scripts/post-redeploy-verify.mjs",
+    "ops:wave-b": "node audit/mobile/scripts/wave-b-after-fresh.mjs"
   },
   "private": true,
   "devDependencies": {

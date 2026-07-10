@@ -97,9 +97,8 @@ node audit/mobile/scripts/proof-create-fields.mjs
 pnpm run ops:next
 # pnpm run ops:post-redeploy
 
-# Staging (يحتاج أسرارك — انظر STAGING-REQUIRED-SECRETS.md)
-node scripts/staging-p0-smoke.mjs
-node scripts/verify-upload-claims-schema.mjs
+# بعد FRESH:
+pnpm run ops:wave-b
 
 # EAS preview
 cd artifacts/banco-mobile
