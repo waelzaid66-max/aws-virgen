@@ -124,10 +124,17 @@ export async function getMySocialLinks(clerkId: string): Promise<SocialLinkDTO[]
   const user = await getDbUser(clerkId);
   if (!user) throw notFound();
 
+  return getSocialLinksForUserId(user.id);
+}
+
+/** Public seller profile chips — safe to embed on listing detail for buyers. */
+export async function getSocialLinksForUserId(userId: string): Promise<SocialLinkDTO[]> {
+  if (!userId) return [];
+
   const rows = await db
     .select({ platform: userSocialLinks.platform, value: userSocialLinks.value })
     .from(userSocialLinks)
-    .where(eq(userSocialLinks.userId, user.id));
+    .where(eq(userSocialLinks.userId, userId));
 
   return rows.map((r) => ({ platform: r.platform as SocialPlatform, value: r.value }));
 }

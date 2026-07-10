@@ -63,7 +63,7 @@ Four jobs on every `main` push:
 
 ## 7. Release tags
 
-- Current RC target: **`v1.0.0-rc.2`** (includes SEO + ESLint/globals + map viewport fixes)
+- Current RC target: **`v1.1.2-contact-gate-2026-07-10`** (wave 7 contact gate); wave 8 adds seller social + edit phones
 - Tag both primary (optional) and aws-virgen after sync
 
 ## 8. Who does what

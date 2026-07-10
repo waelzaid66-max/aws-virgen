@@ -16,7 +16,7 @@
 
 | الريبو | الفرع | Tag | SHA |
 |--------|--------|-----|-----|
-| **-BANCO-CA-OOM-** | `main` | `v1.1.1-product-truth-2026-07-10` | `1aecea5` |
+| **-BANCO-CA-OOM-** | `main` | `v1.1.1-product-truth-2026-07-10` | `4aac60c` |
 | **aws-virgen** | `main` | `v1.1.1-product-truth-2026-07-10` | `f9acaf7` ✅ |
 
 ```bash

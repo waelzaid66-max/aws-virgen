@@ -2,6 +2,14 @@
 
 Branch: `main` (was `fix/mobile-master-stabilize` — merged)
 
+### Wave 8 — contact completeness + public seller links (2026-07-10)
+| Fix | Detail |
+|-----|--------|
+| API | `seller.social_links` on listing detail (from `user_social_links`) |
+| Listing detail | `SellerSocialLinks` chips for buyers |
+| Edit listing | `contact_phones` + `whatsapp_enabled` patch via specs |
+| Shared | `lib/socialLinks.ts` URL + icon helpers |
+
 ### Wave 7 — contact + wizard fixes (2026-07-10)
 | Fix | Detail |
 |-----|--------|

@@ -549,6 +549,7 @@ const en = {
     bookOnGoogle: "Book on Google",
     bestOffer: "Best offer",
     verifiedSeller: "Verified seller",
+    sellerSocial: "Seller links",
     comments: {
       title: "Questions & answers",
       empty: "No questions yet — be the first to ask.",
@@ -2404,6 +2405,7 @@ const ar: typeof en = {
     bookOnGoogle: "احجز عبر Google",
     bestOffer: "أفضل عرض",
     verifiedSeller: "بائع موثّق",
+    sellerSocial: "روابط البائع",
     comments: {
       title: "أسئلة وأجوبة",
       empty: "لا توجد أسئلة بعد — كن أول من يسأل.",

@@ -57,6 +57,7 @@ import { ListingComments } from "@/components/ListingComments";
 import { MediaGallery } from "@/components/MediaGallery";
 import { PromoteButton } from "@/components/PromoteButton";
 import { SellerRatingBar, SellerReviews } from "@/components/SellerReviews";
+import { SellerSocialLinks } from "@/components/SellerSocialLinks";
 import { SkeletonCard } from "@/components/SkeletonCard";
 import { SmartAssetCard } from "@/components/SmartAssetCard";
 import { formatSpecs } from "@/constants/listingSpecs";
@@ -1497,6 +1498,9 @@ export default function ListingDetailScreen() {
                         </View>
                       ) : null}
                     </View>
+                  ) : null}
+                  {listing.seller.social_links?.length ? (
+                    <SellerSocialLinks links={listing.seller.social_links} />
                   ) : null}
                 </View>
               </View>

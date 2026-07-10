@@ -10,6 +10,7 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const APP_ROOT = path.dirname(__dirname);
+const REPO_ROOT = path.join(APP_ROOT, "..", "..");
 
 const RENTAL_HOST = path.join(APP_ROOT, "lib", "rentalHost.ts");
 const NOTIF_ROUTING = path.join(APP_ROOT, "lib", "notificationRouting.ts");
@@ -522,6 +523,40 @@ test("create listing submit validates steps 0-3", () => {
     create,
     /for\s*\(const s of \[0,\s*1,\s*2,\s*3\]\)/,
     "submit must validate all wizard steps including category (0)",
+  );
+});
+
+test("edit listing patches contact_phones and whatsapp in specs", () => {
+  const edit = fs.readFileSync(
+    path.join(APP_ROOT, "app", "listings", "edit", "[id].tsx"),
+    "utf8",
+  );
+  assert.match(
+    edit,
+    /contact_phones:\s*cleanPhones/,
+    "edit listing must persist listing contact phones",
+  );
+  assert.match(
+    edit,
+    /whatsapp_enabled:\s*whatsappEnabled/,
+    "edit listing must persist whatsapp opt-in",
+  );
+});
+
+test("listing detail surfaces seller social links for buyers", () => {
+  const listing = fs.readFileSync(
+    path.join(APP_ROOT, "app", "listing", "[id].tsx"),
+    "utf8",
+  );
+  const api = fs.readFileSync(
+    path.join(REPO_ROOT, "artifacts", "api-server", "src", "services", "ListingService.ts"),
+    "utf8",
+  );
+  assert.match(listing, /SellerSocialLinks/, "listing detail must render seller social chips");
+  assert.match(
+    api,
+    /social_links:\s*sellerSocialLinks/,
+    "API listing detail must attach seller social_links",
   );
 });
 
