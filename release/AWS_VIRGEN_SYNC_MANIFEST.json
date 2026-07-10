@@ -1,13 +1,13 @@
 {
   "schema": "banco-aws-virgen-sync/1",
-  "generatedAt": "2026-07-10T14:33:23.887Z",
+  "generatedAt": "2026-07-10T14:53:56.302Z",
   "releaseTag": "v1.1.1-product-truth-2026-07-10",
   "primaryRepository": "waelzaid66-max/-BANCO-CA-OOM-",
   "awsVirgenRepository": "waelzaid66-max/aws-virgen",
   "commit": {
-    "full": "1aecea5a55df52a55840c6290d547d6755f93950",
-    "short": "1aecea5",
-    "subject": "fix(mobile): restore profile social links as primary contact surface"
+    "full": "4aac60cc095a25ff8f8cf48e108b1c3d5419c261",
+    "short": "4aac60c",
+    "subject": "docs(release): wave 6 gates FRESH + product truth reports @ 1aecea5"
   },
   "syncPolicy": "merge primary main into aws-virgen main (full tree, history preserved)",
   "ci": {
