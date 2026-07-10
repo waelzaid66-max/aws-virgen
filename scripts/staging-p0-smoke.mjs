@@ -79,9 +79,20 @@ After smoke, verify DB schema:
 `);
 }
 
+function looksLikeDeadReplitPlaceholder(status, body) {
+  const text = typeof body === "string" ? body : JSON.stringify(body ?? "");
+  return (
+    status === 404 &&
+    (/Run this app to see the results here/i.test(text) ||
+      /janeway\.replit\.dev/i.test(API))
+  );
+}
+
 async function main() {
   if (!API) {
     console.error("Set BANCO_API_URL (or API_URL) to the staging API origin.\n");
+    console.error("For BANCO live Replit use:");
+    console.error('  $env:BANCO_API_URL = "https://banco-ca-oom.replit.app"\n');
     printEnvHelp();
     process.exit(2);
   }
@@ -91,8 +102,16 @@ async function main() {
   // Step 1 — healthz (no auth)
   {
     const { status, body } = await fetchJson("/api/healthz");
-    if (status === 200 && body?.status === "ok") pass("1 healthz");
-    else fail("1 healthz", `status=${status} body=${JSON.stringify(body)}`);
+    if (status === 200 && body?.status === "ok") {
+      pass("1 healthz");
+    } else if (looksLikeDeadReplitPlaceholder(status, body)) {
+      fail(
+        "1 healthz",
+        "dead Replit preview host (404 placeholder). Use https://banco-ca-oom.replit.app after redeploy — not a stopped janeway.dev URL",
+      );
+    } else {
+      fail("1 healthz", `status=${status} body=${JSON.stringify(body)}`);
+    }
   }
 
   // Step 2 — readyz
@@ -100,6 +119,11 @@ async function main() {
     const { status, body } = await fetchJson("/api/readyz");
     if (status === 200 && body?.status === "ok" && body?.checks?.database === "ok") {
       pass("2 readyz");
+    } else if (looksLikeDeadReplitPlaceholder(status, body)) {
+      fail(
+        "2 readyz",
+        "dead Replit preview host — set BANCO_API_URL=https://banco-ca-oom.replit.app",
+      );
     } else {
       fail("2 readyz", `status=${status} body=${JSON.stringify(body)}`);
     }

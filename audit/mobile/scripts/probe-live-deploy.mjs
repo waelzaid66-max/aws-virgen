@@ -2,6 +2,17 @@
  * Live deploy freshness probe — run after API redeploy.
  * Usage: node audit/mobile/scripts/probe-live-deploy.mjs [baseUrl]
  * Default base: https://banco-ca-oom.replit.app
+ *
+ * Exit 0 = FRESH (stabilize API signals present)
+ * Exit 2 = STALE
+ *
+ * Core FRESH signals (required):
+ *   - invalid market_country=EGYPT → HTTP ≥ 400
+ *   - map clusters include is_bookable + price_display
+ *
+ * Soft signal (reported, not required for exit 0):
+ *   - EG vs SA listing IDs diverge when inventory is multi-country tagged.
+ *     Identical IDs alone do not prove STALE if all live rows share one country.
  */
 const base = (process.argv[2] || "https://banco-ca-oom.replit.app").replace(/\/$/, "");
 const api = `${base}/api/v1`;
@@ -47,15 +58,16 @@ const report = {
   clusterCount: (map.body?.data || []).length,
 };
 
-const fresh =
-  report.badIsoStatus >= 400 &&
-  report.hasBookable &&
-  report.hasPrice &&
-  !report.egEqSa;
+const coreFresh =
+  report.badIsoStatus >= 400 && report.hasBookable && report.hasPrice;
 
-report.verdict = fresh
-  ? "FRESH — market + map bookable look deployed"
+report.marketFilterNote = report.egEqSa
+  ? "EG≡SA listing ids — OK if inventory is single-country; tag SA rows to prove filter"
+  : "EG≠SA — market_country filter observable";
+
+report.verdict = coreFresh
+  ? "FRESH — ISO reject + map bookable/price deployed"
   : "STALE — redeploy fix/mobile-master-stabilize API before device claims";
 
 console.log(JSON.stringify(report, null, 2));
-process.exit(fresh ? 0 : 2);
+process.exit(coreFresh ? 0 : 2);

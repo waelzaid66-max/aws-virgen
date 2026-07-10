@@ -39,10 +39,14 @@ const fresh = result.status === 0;
 
 if (!fresh) {
   console.log(`
-NEXT (blocking):
-  1. Open audit/mobile/NEXT-OPS-REPLIT-REDEPLOY.md
-  2. On Replit: checkout fix/mobile-master-stabilize (or merge) + restart API
-  3. Re-run: node audit/mobile/scripts/ops-next-step.mjs
+NEXT (blocking) — paste on Replit Shell:
+  git fetch origin && git checkout fix/mobile-master-stabilize && git pull --ff-only
+  pnpm install --frozen-lockfile
+  pnpm --filter @workspace/db run push-force
+  # Stop → Run api-server, then:
+  node audit/mobile/scripts/post-redeploy-verify.mjs
+
+Full runbook: audit/mobile/NEXT-OPS-REPLIT-REDEPLOY.md
 `);
   process.exit(2);
 }
@@ -50,7 +54,9 @@ NEXT (blocking):
 if (!hasSmokeSecrets) {
   console.log(`
 LIVE is FRESH.
-NEXT: set BANCO_API_URL + CLERK_BEARER_TOKEN, then:
+NEXT:
+  $env:BANCO_API_URL = "${base}"
+  $env:CLERK_BEARER_TOKEN = "<Clerk JWT>"
   node scripts/staging-p0-smoke.mjs
 `);
   process.exit(0);
@@ -59,6 +65,7 @@ NEXT: set BANCO_API_URL + CLERK_BEARER_TOKEN, then:
 console.log(`
 LIVE is FRESH + smoke secrets present.
 NEXT:
+  $env:BANCO_API_URL = "${base}"
   node scripts/staging-p0-smoke.mjs
   node scripts/verify-upload-claims-schema.mjs   # needs DATABASE_URL
   cd artifacts/banco-mobile && eas build --profile preview --platform android
