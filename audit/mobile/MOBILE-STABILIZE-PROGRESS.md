@@ -1,6 +1,16 @@
 # Mobile Master Stabilize — Progress Log
 
-Branch: `fix/mobile-master-stabilize`
+Branch: `main` (was `fix/mobile-master-stabilize` — merged)
+
+### Wave 6 — product truth (`1aecea5`, 2026-07-10)
+| Fix | Detail |
+|-----|--------|
+| Profile UX | Social link chips under bio — **not** account phone on card |
+| Profile edit | Phone removed from edit modal; optional at signup only |
+| Completion | Nudge `social` links, not account phone |
+| Cars | `carBrandFromDraftValue` restores custom brand from draft |
+| Rental copy | Furnished units (Airbnb) — explicitly not hotels |
+| Tests | lib-hardening **36/36** — profile social contract enforced |
 
 ## Done
 
@@ -79,6 +89,8 @@ Docs: `SEARCH-BUTTON-ISOLATION.md`, `SECTION-ISOLATION-STRICT-2026-07-10.md`, `A
 | PromoteButton sheet | Same touch pattern (profile listing grid) |
 | Stack routes | `settings`, `business/verification`, `assistant` registered |
 | AuthGate modal | Touch-safe backdrop (guest sign-up CTA no longer nested Pressable) |
+| Listing modals | Report / RFQ / Apply — touch-safe (no stopPropagation) |
+| FilterSheet sort | Section accent chips (not generic primary) |
 | Doc | `MASTER-TRUTH-INVENTORY-AR.md`, `PROFILE-BUTTON-INVENTORY-AR.md` |
 
 ## Still open (honest)
@@ -100,7 +112,7 @@ node audit/mobile/scripts/ops-next-step.mjs
 
 ## Latest verification (automated) — deep re-run 2026-07-10
 - Full report: `FULL-DEEP-VERIFICATION-2026-07-10.md`
-- Mobile `node --test`: **34/34**
+- Mobile `node --test`: **36/36** (lib-hardening)
 - `proof-isolation` / `proof-create-fields`: **ok**
 - search-contract: **33/33** (fixed stale `monthly`/facilities URL round-trip)
 - `allowCommodityMaterialFilter`: **4/4**
