@@ -377,6 +377,11 @@ components:
         phone:
           type: string
           nullable: true
+        social_links:
+          type: array
+          description: Public seller profile links (Task #38). Empty when none set.
+          items:
+            $ref: "#/components/schemas/SocialLink"
 
     ListingDetail:
       type: object

@@ -321,6 +321,9 @@ export const ListingDetailSchema = z
         name: z.string(),
         role: z.string(),
         is_verified: z.boolean(),
+        // Public profile chips (instagram, linkedin, website, whatsapp) — not
+        // listing contact_phones; those stay in specs for lead reveal.
+        social_links: z.array(SocialLinkSchema),
         // phone intentionally omitted — only obtainable via POST /leads/contact
         // to ensure every phone reveal is a server-observed billable contact event.
       })

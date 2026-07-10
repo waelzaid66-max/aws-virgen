@@ -259,6 +259,8 @@ export interface Seller {
   role: string;
   is_verified: boolean;
   phone?: string | null;
+  /** Public profile social chips surfaced on listing detail for buyers. */
+  social_links?: SocialLink[];
 }
 
 export type ListingDetailCategory = typeof ListingDetailCategory[keyof typeof ListingDetailCategory];

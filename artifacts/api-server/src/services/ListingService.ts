@@ -19,6 +19,7 @@ import { recordPriceObservation } from "./MarketInsightsService";
 import { checkListingQuota, type UserRole } from "./PlanService";
 import { getLinksForListing } from "./ListingLinkService";
 import { mintContactToken } from "./LeadService";
+import { getSocialLinksForUserId } from "./ProfileService";
 import { publicVisibilityConditions } from "../lib/feedVisibility";
 import { getObjectStorageService } from "../lib/objectStorageProvider";
 import {
@@ -578,7 +579,8 @@ export async function getListingDetail(listingId: string, viewerClerkId?: string
 
   const isOwner = viewerClerkId && viewerClerkId === listing.seller_clerk_id;
 
-  const [mediaRows, paymentRows, attrRows, linkedListings, contactToken] = await Promise.all([
+  const [mediaRows, paymentRows, attrRows, linkedListings, contactToken, sellerSocialLinks] =
+    await Promise.all([
     db.select().from(listingMedia).where(eq(listingMedia.listingId, listingId)),
     db.select().from(paymentOptions).where(eq(paymentOptions.listingId, listingId)),
     db.select().from(listingAttributes).where(eq(listingAttributes.listingId, listingId)).limit(1),
@@ -589,6 +591,9 @@ export async function getListingDetail(listingId: string, viewerClerkId?: string
     viewerClerkId && !isOwner
       ? mintContactToken(viewerClerkId, listingId)
       : Promise.resolve(null),
+    listing.user_id
+      ? getSocialLinksForUserId(listing.user_id)
+      : Promise.resolve([]),
   ]);
 
   const payment = normalizePaymentOptions(paymentRows);
@@ -672,6 +677,7 @@ export async function getListingDetail(listingId: string, viewerClerkId?: string
       name: listing.seller_name ?? "Unknown",
       role: listing.seller_role ?? "individual",
       is_verified: listing.is_verified ?? false,
+      social_links: sellerSocialLinks,
     },
     interactions: {
       views: listing.views ?? 0,

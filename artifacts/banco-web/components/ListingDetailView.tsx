@@ -108,6 +108,25 @@ export function ListingDetailView({
           <div>
             <dt style={mutedStyle}>{copy.seller}</dt>
             <dd style={{ margin: "0.25rem 0 0" }}>{listing.seller.name}</dd>
+            {listing.seller.social_links && listing.seller.social_links.length > 0 ? (
+              <ul style={{ margin: "0.5rem 0 0", padding: 0, listStyle: "none", display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+                {listing.seller.social_links.map((link) => {
+                  const href =
+                    link.platform === "whatsapp"
+                      ? `https://wa.me/${link.value.replace(/\D/g, "")}`
+                      : /^https?:\/\//i.test(link.value)
+                        ? link.value
+                        : `https://${link.value}`;
+                  return (
+                    <li key={link.platform}>
+                      <a href={href} rel="noopener noreferrer" target="_blank" style={{ fontSize: "0.85rem" }}>
+                        {link.platform}
+                      </a>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : null}
           </div>
         </dl>
         <ListingShareActions listingId={listing.id} title={listing.title} />
