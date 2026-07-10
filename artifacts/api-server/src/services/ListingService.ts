@@ -549,6 +549,7 @@ export async function getListingDetail(listingId: string, viewerClerkId?: string
       seller_clerk_id: users.clerkId,
       seller_name: users.name,
       seller_role: users.role,
+      is_request: listings.isRequest,
       // seller_phone intentionally excluded — phone reveal is gated behind
       // POST /leads/contact so that every access is a server-observed contact event.
       is_verified: users.isVerified,
@@ -641,12 +642,16 @@ export async function getListingDetail(listingId: string, viewerClerkId?: string
     title: listing.title,
     description: listing.description,
     category: listing.category,
-    price_display: formatEGP(listing.base_price_cash),
+    price_display: listing.is_request
+      ? REQUEST_PRICE_DISPLAY
+      : formatEGP(String(listing.base_price_cash ?? 0)),
     // Additive: the raw numeric cash price. For furnished/daily rentals it is the
     // per-night rate the booking widget multiplies by the night count for a
     // pre-booking estimate (the server stays authoritative on the real total).
     price_cash:
-      typeof listing.base_price_cash === "number" ? listing.base_price_cash : null,
+      typeof listing.base_price_cash === "number" && listing.base_price_cash > 0
+        ? listing.base_price_cash
+        : null,
     location: listing.location,
     status: listing.status,
     created_at: listing.created_at?.toISOString() ?? new Date().toISOString(),
@@ -682,6 +687,7 @@ export async function getListingDetail(listingId: string, viewerClerkId?: string
     contact_token: contactToken,
     // Opt-in only — true only when the seller explicitly enabled WhatsApp.
     whatsapp_enabled: (specs as Record<string, unknown>).whatsapp_enabled === true,
+    is_request: listing.is_request ?? false,
   };
 }
 

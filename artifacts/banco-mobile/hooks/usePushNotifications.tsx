@@ -11,7 +11,10 @@ import { useEffect, useRef } from "react";
 import { Platform } from "react-native";
 
 import { useSound } from "@/context/SoundContext";
-import { routeForNotification } from "@/lib/notificationRouting";
+import {
+  notificationRequiresAuth,
+  routeForNotification,
+} from "@/lib/notificationRouting";
 
 /**
  * Remote push wiring (Task #102).
@@ -65,7 +68,10 @@ function navigateWhenReady(dest: Parameters<typeof router.push>[0], attempt = 0)
   }
 }
 
-function handleResponse(response: Notifications.NotificationResponse | null) {
+function handleResponse(
+  response: Notifications.NotificationResponse | null,
+  signedIn: boolean,
+) {
   if (!response) return;
   const data = (response.notification.request.content.data ?? {}) as Record<
     string,
@@ -74,6 +80,10 @@ function handleResponse(response: Notifications.NotificationResponse | null) {
   const type = typeof data.type === "string" ? data.type : undefined;
   const dest = routeForNotification(type, data);
   if (!dest) return;
+  if (!signedIn && notificationRequiresAuth(dest)) {
+    navigateWhenReady("/(tabs)/profile");
+    return;
+  }
   navigateWhenReady(dest);
 }
 
@@ -147,11 +157,13 @@ export function PushNotificationsBridge() {
   useEffect(() => {
     if (isExpoGo) return;
     Notifications.getLastNotificationResponseAsync()
-      .then(handleResponse)
+      .then((r) => handleResponse(r, isSignedIn === true))
       .catch(() => {});
-    const sub = Notifications.addNotificationResponseReceivedListener(handleResponse);
+    const sub = Notifications.addNotificationResponseReceivedListener((r) =>
+      handleResponse(r, isSignedIn === true),
+    );
     return () => sub.remove();
-  }, []);
+  }, [isSignedIn]);
 
   return null;
 }

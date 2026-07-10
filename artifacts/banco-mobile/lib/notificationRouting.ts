@@ -88,3 +88,12 @@ export function routeForNotificationItem(n: Notification): Href | null {
     (n.data ?? null) as Record<string, unknown> | null,
   );
 }
+
+/** Public listing detail is the only push destination guests may open. */
+export function notificationRequiresAuth(dest: Href): boolean {
+  if (typeof dest === "string") {
+    return !dest.startsWith("/listing/");
+  }
+  const path = dest.pathname ?? "";
+  return path !== "/listing/[id]";
+}

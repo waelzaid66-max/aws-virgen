@@ -480,6 +480,10 @@ components:
           description: >
             True when the seller opted this listing in to WhatsApp contact.
             Opt-in only (default false); clients gate the WhatsApp CTA on it.
+        is_request:
+          type: boolean
+          description: >
+            True when this is a buyer "request/wanted" post rather than a sale listing.
 
     DealerListing:
       type: object

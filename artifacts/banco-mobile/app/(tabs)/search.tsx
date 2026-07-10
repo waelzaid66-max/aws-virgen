@@ -289,6 +289,9 @@ export default function SearchScreen() {
       viewState === "empty" ||
       viewState === "error"
     ) {
+      if (viewState !== "error") {
+        Alert.alert(t("search.discover.exploreMap"), t("search.mapNoPins"));
+      }
       setWantMap(false);
     }
   }, [wantMap, canMap, viewState]);

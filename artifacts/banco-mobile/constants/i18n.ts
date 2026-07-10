@@ -834,6 +834,8 @@ const en = {
     priceNightHint: "Price per night (EGP)",
     priceHint: "Asking price (EGP)",
     priceRequired: "Enter a valid price.",
+    requestNoPrice: "No price",
+    requestPriceLocked: "Buyer requests don't use a fixed price — sellers will quote you.",
     lockedType:
       "Category and rental type can't be changed here. Create a new listing for a different offer.",
   },
@@ -2685,6 +2687,8 @@ const ar: typeof en = {
     priceNightHint: "السعر لليلة (ج.م)",
     priceHint: "السعر المطلوب (ج.م)",
     priceRequired: "أدخل سعراً صحيحاً.",
+    requestNoPrice: "بدون سعر",
+    requestPriceLocked: "طلبات الشراء بدون سعر ثابت — البائعون هيعرضوا عليك.",
     lockedType:
       "لا يمكن تغيير الفئة أو نوع الإيجار من هنا. أنشئ إعلاناً جديداً لعرض مختلف.",
   },

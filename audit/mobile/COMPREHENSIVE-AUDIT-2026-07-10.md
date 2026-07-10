@@ -142,4 +142,20 @@ pnpm run ops:wave-b
 
 ---
 
-*آخر تحديث: فحص شامل + إصلاحات عزل 2026-07-10. لا تُعلَن جاهزية متجر قبل FRESH + smoke + Device QA.*
+## 10) موجة صيانة الجودة قبل التجريب الحي (2026-07-10 — الجلسة الثالثة)
+
+| # | المشكلة | الإصلاح |
+|---|---------|---------|
+| 1 | `/messages/[id]` يفتح للضيف بدون رسائل ويُظهر المُرسل | `enabled: !!isSignedIn` + شاشة تسجيل دخول (مثل قائمة الرسائل) |
+| 2 | ضغطة إشعار push تفتح `/billing` أو `/messages` للضيف | `notificationRequiresAuth()` + تحويل لـ Profile |
+| 3 | تعديل إعلان «طلب شراء» يُجبر على سعر > 0 | تخطي التحقق من السعر + عدم إرسال `base_price_cash`؛ API يُرجع `is_request` في `ListingDetail` |
+| 4 | «استكشف على الخريطة» يفشل بصمت بدون إحداثيات | `Alert` بـ `search.mapNoPins` عند فشل `wantMap` |
+| 5 | عمليات بحث محفوظة v1 بدون `criteria` | `upgradeSavedSearches()` عند التحميل من AsyncStorage |
+
+**اختبارات:** mobile **44/44**، lib-hardening **31**، confidence **19/19**.
+
+**ما زال OPS (ليس كود):** Replit redeploy → `pnpm run ops:post-redeploy` (FRESH) → `CLERK_BEARER_TOKEN` → `ops:wave-b` → EAS preview + Device QA.
+
+---
+
+*آخر تحديث: موجة جودة ما قبل التجريب الحي 2026-07-10. لا تُعلَن جاهزية متجر قبل FRESH + smoke + Device QA.*

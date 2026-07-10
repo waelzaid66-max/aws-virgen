@@ -521,3 +521,63 @@ test("home feed refetches when preferred market hydrates", () => {
     "home feed effect must depend on marketCountry",
   );
 });
+
+test("message thread gates guests before fetching or composing", () => {
+  const thread = fs.readFileSync(path.join(APP_ROOT, "app", "messages", "[id].tsx"), "utf8");
+  assert.match(thread, /useAuth/, "thread must read auth state");
+  assert.match(
+    thread,
+    /enabled:\s*!!isSignedIn\s*&&\s*!!conversationId/,
+    "thread messages query must not run for guests",
+  );
+  assert.match(thread, /testID="thread-signin"/, "thread must offer sign-in CTA for guests");
+});
+
+test("push tap handler redirects unsigned users away from private routes", () => {
+  const push = fs.readFileSync(path.join(APP_ROOT, "hooks", "usePushNotifications.tsx"), "utf8");
+  const routing = fs.readFileSync(NOTIF_ROUTING, "utf8");
+  assert.match(routing, /notificationRequiresAuth/, "routing must expose auth gate helper");
+  assert.match(
+    push,
+    /notificationRequiresAuth\(dest\)/,
+    "push handler must gate private destinations",
+  );
+  assert.match(
+    push,
+    /handleResponse\(r,\s*isSignedIn\s*===\s*true\)/,
+    "push listener must pass signed-in state",
+  );
+});
+
+test("edit listing skips price validation for buyer requests", () => {
+  const edit = fs.readFileSync(
+    path.join(APP_ROOT, "app", "listings", "edit", "[id].tsx"),
+    "utf8",
+  );
+  assert.match(edit, /is_request/, "edit screen must read is_request from listing");
+  assert.match(
+    edit,
+    /!isRequest\s*&&\s*base_price_cash\s*<=\s*0/,
+    "price validation must be skipped for buyer requests",
+  );
+  assert.match(
+    edit,
+    /isRequest\s*\?\s*\{\}\s*:\s*\{\s*base_price_cash\s*\}/,
+    "buyer requests must not send base_price_cash on update",
+  );
+});
+
+test("explore-on-map surfaces when results have no coordinates", () => {
+  const search = fs.readFileSync(path.join(APP_ROOT, "app", "(tabs)", "search.tsx"), "utf8");
+  assert.match(
+    search,
+    /wantMap[\s\S]*search\.mapNoPins/,
+    "search must alert when map intent cannot be satisfied",
+  );
+});
+
+test("saved searches v1 entries upgrade to criteria v2 on load", () => {
+  const session = fs.readFileSync(path.join(APP_ROOT, "context", "SessionContext.tsx"), "utf8");
+  assert.match(session, /upgradeSavedSearches/, "SessionContext must upgrade legacy saved searches");
+  assert.match(session, /legacyCriteriaFromSaved/, "upgrade must map v1 fields into SearchCriteria");
+});

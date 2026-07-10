@@ -388,6 +388,8 @@ export interface ListingDetail {
   contact_token?: string | null;
   /** True when the seller opted this listing in to WhatsApp contact. Opt-in only (default false); clients gate the WhatsApp CTA on it. */
   whatsapp_enabled?: boolean | null;
+  /** True when this is a buyer "request/wanted" post rather than a sale listing. */
+  is_request?: boolean;
 }
 
 export interface DealerListing {

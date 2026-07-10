@@ -17,7 +17,8 @@ import {
 } from "@workspace/api-client-react";
 
 import type { SearchCriteria } from "@/lib/searchParams";
-import { criteriaKey } from "@/lib/searchParams";
+import { criteriaKey, DEFAULT_CRITERIA } from "@/lib/searchParams";
+import type { Category } from "@/components/CategoryTabs";
 import { useAuthGate } from "@/hooks/useAuthGate";
 
 const SESSION_ID =
@@ -82,6 +83,31 @@ function searchSignature(s: SavedSearchInput): string {
     s.location.trim().toLowerCase(),
     s.paymentType,
   ].join("|");
+}
+
+function legacyCriteriaFromSaved(s: SavedSearch): SearchCriteria {
+  return {
+    ...DEFAULT_CRITERIA,
+    q: s.q ?? "",
+    category: (s.category as Category) || DEFAULT_CRITERIA.category,
+    minPrice: s.minPrice ?? "",
+    maxPrice: s.maxPrice ?? "",
+    location: s.location ?? "",
+    paymentType: s.paymentType ?? "any",
+  };
+}
+
+function upgradeSavedSearches(raw: SavedSearch[]): {
+  items: SavedSearch[];
+  migrated: boolean;
+} {
+  let migrated = false;
+  const items = raw.map((s) => {
+    if (s.criteria) return s;
+    migrated = true;
+    return { ...s, criteria: legacyCriteriaFromSaved(s) };
+  });
+  return { items, migrated };
 }
 
 interface SessionContextValue {
@@ -203,7 +229,13 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       .catch(() => {});
     AsyncStorage.getItem(SEARCHES_KEY)
       .then((raw) => {
-        if (raw) setSavedSearches(JSON.parse(raw) as SavedSearch[]);
+        if (!raw) return;
+        const parsed = JSON.parse(raw) as SavedSearch[];
+        const { items, migrated } = upgradeSavedSearches(parsed);
+        setSavedSearches(items);
+        if (migrated) {
+          AsyncStorage.setItem(SEARCHES_KEY, JSON.stringify(items)).catch(() => {});
+        }
       })
       .catch(() => {});
     AsyncStorage.getItem(RECENT_KEY)
