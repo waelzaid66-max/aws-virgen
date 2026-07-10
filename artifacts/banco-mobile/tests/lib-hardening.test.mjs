@@ -650,3 +650,20 @@ test("home and promote modals use touch-safe backdrop pattern", () => {
     "auth gate must not rely on stopPropagation on nested Pressables",
   );
 });
+
+test("listing detail modals use touch-safe backdrop pattern", () => {
+  const listing = fs.readFileSync(
+    path.join(APP_ROOT, "app", "listing", "[id].tsx"),
+    "utf8",
+  );
+  assert.doesNotMatch(
+    listing,
+    /stopPropagation/,
+    "listing detail modals must not use stopPropagation on nested Pressables",
+  );
+  assert.match(
+    listing,
+    /reportOpen[\s\S]*StyleSheet\.absoluteFillObject[\s\S]*reportSheet/,
+    "report modal must use sibling backdrop + sheet",
+  );
+});

@@ -260,9 +260,7 @@ export function FilterSheet({
                     style={[
                       styles.chip,
                       {
-                        backgroundColor: active
-                          ? colors.primary
-                          : colors.secondary,
+                        backgroundColor: active ? chipAccent : colors.secondary,
                       },
                     ]}
                     testID={`sort-${s}`}

@@ -1661,13 +1661,15 @@ export default function ListingDetailScreen() {
         animationType="fade"
         onRequestClose={closeReport}
       >
-        <Pressable
-          style={styles.modalOverlay}
-          onPress={() => {
-            if (reportState !== "submitting") closeReport();
-          }}
-        >
+        <View style={styles.modalOverlay}>
           <Pressable
+            style={StyleSheet.absoluteFillObject}
+            onPress={() => {
+              if (reportState !== "submitting") closeReport();
+            }}
+            accessibilityRole="button"
+          />
+          <View
             style={[
               styles.reportSheet,
               {
@@ -1676,7 +1678,6 @@ export default function ListingDetailScreen() {
                 paddingBottom: (Platform.OS === "web" ? 24 : insets.bottom) + 16,
               },
             ]}
-            onPress={(e) => e.stopPropagation()}
           >
             {reportState === "submitting" ? (
               <View style={styles.reportResult}>
@@ -1849,8 +1850,8 @@ export default function ListingDetailScreen() {
                 </Pressable>
               </>
             )}
-          </Pressable>
-        </Pressable>
+          </View>
+        </View>
       </Modal>
 
       <Modal
@@ -1863,8 +1864,13 @@ export default function ListingDetailScreen() {
           behavior={Platform.OS === "ios" ? "padding" : undefined}
           style={styles.flex}
         >
-          <Pressable style={styles.modalOverlay} onPress={closeRfq}>
+          <View style={styles.modalOverlay}>
             <Pressable
+              style={StyleSheet.absoluteFillObject}
+              onPress={closeRfq}
+              accessibilityRole="button"
+            />
+            <View
               style={[
                 styles.reportSheet,
                 {
@@ -1874,7 +1880,6 @@ export default function ListingDetailScreen() {
                     (Platform.OS === "web" ? 24 : insets.bottom) + 16,
                 },
               ]}
-              onPress={(e) => e.stopPropagation()}
             >
               {rfqState === "submitting" ? (
                 <View style={styles.reportResult}>
@@ -2202,8 +2207,8 @@ export default function ListingDetailScreen() {
                   </Pressable>
                 </>
               )}
-            </Pressable>
-          </Pressable>
+            </View>
+          </View>
         </KeyboardAvoidingView>
       </Modal>
 
@@ -2213,8 +2218,13 @@ export default function ListingDetailScreen() {
         animationType="slide"
         onRequestClose={closeApply}
       >
-        <Pressable style={styles.modalOverlay} onPress={closeApply}>
+        <View style={styles.modalOverlay}>
           <Pressable
+            style={StyleSheet.absoluteFillObject}
+            onPress={closeApply}
+            accessibilityRole="button"
+          />
+          <View
             style={[
               styles.reportSheet,
               {
@@ -2223,7 +2233,6 @@ export default function ListingDetailScreen() {
                 paddingBottom: (Platform.OS === "web" ? 24 : insets.bottom) + 16,
               },
             ]}
-            onPress={(e) => e.stopPropagation()}
           >
             {applyState === "submitting" ? (
               <View style={styles.reportResult}>
@@ -2561,8 +2570,8 @@ export default function ListingDetailScreen() {
                 </Pressable>
               </>
             )}
-          </Pressable>
-        </Pressable>
+          </View>
+        </View>
       </Modal>
     </View>
   );

@@ -1,7 +1,7 @@
 # بوابة نجاح نشر الموبايل — من أول الأهداف إلى الآن
 
 **التاريخ:** 2026-07-10  
-**الفرع:** `fix/mobile-master-stabilize`  
+**الفرع:** `main` · tag `v1.1.0-stabilize-2026-07-10`  
 **القاعدة:** لا أخضر مزيف. الكود ≠ الجهاز ≠ Live ≠ المتجر.
 
 ---
@@ -28,7 +28,7 @@
 |------|--------|------|
 | كود محلي M01–M31 + أمان P0 | **CLOSED** | `MOBILE-STABILIZE-PROGRESS.md`, `audit/fixes/C-01…` |
 | اختبارات أوتوماتيك محلية | **PASS** (إعادة فحص عميق 2026-07-10) | `FULL-DEEP-VERIFICATION-2026-07-10.md` — mobile 34/34 · contract 33/33 · material 4/4 · proofs ok |
-| Live Replit API | **STALE** | `LIVE-DEPLOY-PROBE.md` — `market_country` / map bookable غير مطبّقة |
+| Live Replit API | **FRESH** | `ops-next-step.mjs` — ISO reject + map bookable/price |
 | Device QA | **OPEN** | `DEVICE-QA-SECTION-COMPANIES.md` لم يُنفَّذ |
 | OPS O16 | **OPEN** | أسرار + smoke + EAS |
 | Website | **غير حاجز** | O17 SKIP |
@@ -72,7 +72,7 @@
 
 ### يغلقه أنت فقط (لا يمكن تزويره)
 
-- [ ] Redeploy API (الفرع الحالي → Replit/staging)
+- [x] Redeploy API (الفرع الحالي → Replit/staging) — **FRESH** 2026-07-10
 - [ ] `BANCO_API_URL` + `CLERK_BEARER_TOKEN` + `DATABASE_URL`
 - [ ] `node scripts/staging-p0-smoke.mjs` exit 0
 - [ ] `node scripts/verify-upload-claims-schema.mjs` PASS
@@ -133,6 +133,6 @@ eas build --profile preview --platform android
 ## 6) الخلاصة للإدارة
 
 **الموبايل كمنتج برمجي على الفرع جاهز للمتابعة نحو staging/جهاز.**  
-**الموبايل كمنتج منشور على المتاجر ليس جاهزاً بعد** — لأن Live STALE وDevice/EAS/O16 مفتوحة عند المشغّل.
+**الموبايل كمنتج منشور على المتاجر ليس جاهزاً بعد** — لأن Device/EAS/O16 مفتوحة عند المشغّل (API حي FRESH).
 
 أي عمل كود إضافي قبل Wave A يجب أن يكون **إصلاح نكسة مثبتة فقط**، لا features جديدة ولا «تنظيف جمالي» يمس رحلات الأقسام.
